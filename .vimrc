@@ -16,6 +16,7 @@ Plugin 'Lokaltog/vim-powerline'
 Plugin 'syntastic'
 Plugin 'davidhalter/jedi-vim'
 Plugin 'hynek/vim-python-pep8-indent'
+Bundle 'LaTeX-Box-Team/LaTeX-Box'
 
 
 " Hennings Einstellungen
