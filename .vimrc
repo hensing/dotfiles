@@ -81,8 +81,8 @@ set backspace=2
 "autocmd VimLeave * echo "Cya in Hell."
 
 " auto folds schreiben und laden
-autocmd BufWrite * mkview
-autocmd BufRead * silent loadview
+autocmd BufWrite *.* mkview
+autocmd BufRead *.* silent loadview
 
 " falten an markern als default
 set foldmethod=marker
