@@ -20,6 +20,7 @@ Plugin 'LaTeX-Box-Team/LaTeX-Box'       " Lightweight Toolbox for LaTeX
 Plugin 'airblade/vim-gitgutter'         " git changes in gutter
 Plugin 'tpope/vim-fugitive'             " git commit/diff/...
 Plugin 'scrooloose/nerdcommenter'       " comments
+Plugin 'thomwiggers/vim-colors-solarized' " solarized colors
 
 " Hennings Einstellungen
 set nu              " Zeilen nummerieren
@@ -57,8 +58,6 @@ endif
 syntax enable
 set background=dark
 colorscheme solarized
-highlight SignColumn guibg=None
-highlight SignColumn ctermbg=None
 
 " Dateispezifische einstellungen laden?
 filetype on
