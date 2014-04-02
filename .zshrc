@@ -14,6 +14,8 @@ export REPORTTIME=5     # CPU-Auslastung bei langen Jobs anzeigen:
 export LC_ALL=${LC_ALL:-en_US.UTF-8}
 #export LANG='de_DE.UTF-8'
 
+bindkey -v   # vim keybindings
+
 # Automatisch nach 5 min ausloggen, wenn root
 if [[ $USER == root ]]; then
     TMOUT=300
