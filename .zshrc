@@ -241,15 +241,25 @@ else
     SSH_STRING=""
 fi
 
+# GIT PROMPT
+if [[ -e ~/.zsh/git-prompt/zshrc.sh ]];
+then
+    setopt prompt_subst
+    source ~/.zsh/git-prompt/zshrc.sh
+else
+    alias git_super_status=test
+fi
+
 # LINKS: (rot: Exitcode)\n PROMPT
 PROMPT='%(?..$PR_RED%?\
 
-)%{$reset_color%}%{$fg_bold[red]%}[%{$reset_color%}%(!.%{$fg_bold[red]%}%SROOT%s%{$reset_color%}.%B%n%b)$SSH_STRING%{$fg_bold[red]%}]%{$reset_color%}%# '
+)%{$reset_color%}%{$fg_bold[red]%}[%{$reset_color%}%(!.%{$fg_bold[red]%}%SROOT%s%{$reset_color%}.%B%n%b)$SSH_STRING%{$fg_bold[red]%}]%{$reset_color%}$(git_super_status)%# '
 
 # RECHTS:
 RPROMPT="%~"    # Pfad, Befehlnr, J
 # Mit Uhrzeit
 #RPROMPT="%T %! %j" # Zeit, Befehlnr, J
+
 # }}}
 
 # farbige man-pages
