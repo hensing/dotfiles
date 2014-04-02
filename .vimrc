@@ -21,6 +21,7 @@ Plugin 'airblade/vim-gitgutter'             " git changes in gutter
 Plugin 'tpope/vim-fugitive'                 " git commit/diff/...
 Plugin 'scrooloose/nerdcommenter'           " comments
 Plugin 'thomwiggers/vim-colors-solarized'   " solarized colors
+Plugin 'kshenoy/vim-signature'              " display,toggle and iterate marks
 
 " Hennings Einstellungen
 set nu              " Zeilen nummerieren
