@@ -151,6 +151,13 @@ set wildchar=<TAB>
 set wildmenu
 set wildmode=longest,list
 
+" omnicompletion keybinding
+inoremap <C-Space> <C-x><C-o>
+inoremap <C-@> <C-Space>
+if !has("gui_running")
+    inoremap <C-@> <C-x><C-o>
+endif
+
 " terminal stuff
 if &term=="rxvt"
 	set term=xterm
