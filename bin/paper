@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# configure section
+######################
+PAPPOS=/media/freenas/pappos/
+READER=evince
+#######################
+
+# set promt
+PS3="Type a number or 'q' to quit: "
+
+# get files:
+clear
+if [[ $1 == '-m' ]]; then
+    READER=mendeleydesktop
+    SEARCH=$2
+else
+    SEARCH=$1
+fi
+echo "Looking for $SEARCH"
+
+fileList=$(find $PAPPOS -iname "*$SEARCH*")
+
+IFS=$'\n'
+# Show a menu and ask for input. If the user entered a valid choice,
+# then invoke the editor on that file
+while [ true ];
+do
+    select fileName in $fileList; do
+        case $fileName in
+            q)
+                break;;
+            *)
+                if [ -n "$fileName" ]; then
+                    nohup $READER ${fileName} 2>/dev/null &
+                fi
+        esac
+    done
+done

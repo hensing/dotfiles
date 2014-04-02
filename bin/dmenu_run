@@ -1,0 +1,3 @@
+#!/bin/sh
+exe=`PATH=/home/hensing/bin:$PATH; /usr/bin/dmenu_run -nb "#fdf6e3" -nf "#002b36" -sb "#073642" -sf "#fdf6e3" ${1+"$@"}` && exec $exe
+

@@ -1,0 +1,2 @@
+#!/bin/bash
+rsync -rhv --progress --size-only  --delete ~/Music/ /media/freenas/music/00_sortiert/
