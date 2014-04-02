@@ -56,6 +56,8 @@ endif
 syntax enable
 set background=dark
 colorscheme solarized
+highlight SignColumn guibg=None
+highlight SignColumn ctermbg=None
 
 " Dateispezifische einstellungen laden?
 filetype on
