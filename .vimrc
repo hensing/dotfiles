@@ -12,13 +12,14 @@ call vundle#rc()
 Plugin 'gmarik/vundle'
 
 " Plugins
-Plugin 'Lokaltog/vim-powerline'
-Plugin 'syntastic'
-Plugin 'davidhalter/jedi-vim'
-Plugin 'hynek/vim-python-pep8-indent'
-Bundle 'LaTeX-Box-Team/LaTeX-Box'
-Bundle 'airblade/vim-gitgutter'
-
+Plugin 'Lokaltog/vim-powerline'         " powerline
+Plugin 'syntastic'                      " syntax checker
+Plugin 'davidhalter/jedi-vim'           " python completion
+Plugin 'hynek/vim-python-pep8-indent'   " python pep8
+Plugin 'LaTeX-Box-Team/LaTeX-Box'       " Lightweight Toolbox for LaTeX
+Plugin 'airblade/vim-gitgutter'         " git changes in gutter
+Plugin 'tpope/vim-fugitive'             " git commit/diff/...
+Plugin 'scrooloose/nerdcommenter'       " comments
 
 " Hennings Einstellungen
 set nu              " Zeilen nummerieren
