@@ -236,7 +236,7 @@ done
 
 # SSH-string: Username@machine, wenn verbunden - ansonsten nur username
 if [ $SSH_CONNECTION ]; then
-    SSH_STRING="@%B%m%b"
+    SSH_STRING="%B%n%b@%B%m%b"
 else
     SSH_STRING=""
 fi
@@ -253,7 +253,7 @@ fi
 # LINKS: (rot: Exitcode)\n PROMPT
 PROMPT='%(?..$PR_RED%?\
 
-)%{$reset_color%}%{$fg_bold[red]%}[%{$reset_color%}%(!.%{$fg_bold[red]%}%SROOT%s%{$reset_color%}.%B%n%b)$SSH_STRING%{$fg_bold[red]%}]%{$reset_color%}$(git_super_status)%# '
+)%{$reset_color%}%(!.%{$fg_bold[red]%}%SROOT%s%{$reset_color%}%B@%m%b.$SSH_STRING)$(git_super_status)%# '
 
 # RECHTS:
 RPROMPT="%~"    # Pfad, Befehlnr, J
