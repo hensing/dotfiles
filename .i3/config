@@ -190,6 +190,10 @@ bindsym $mod+Shift+C move scratchpad
 # Show the first scratchpad window
 bindsym $mod+c scratchpad show
 
+# bind shift + volume to next/prev song
+bindsym Shift+XF86AudioRaiseVolume exec dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Next
+bindsym Shift+XF86AudioLowerVolume exec dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Previous
+
 
 # Start i3bar to display a workspace bar (plus the system information i3status
 # finds out, if available)
