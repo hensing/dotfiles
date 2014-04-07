@@ -13,6 +13,7 @@ import sys
 import fnmatch
 import subprocess
 import mailcap
+import mimetypes
 
 PATH = '/media/freenas/pappos'
 
@@ -82,7 +83,7 @@ if __name__ == '__main__':
         EXE = "/usr/bin/mendeleydesktop '%s'"
     else:
         CAPS = mailcap.getcaps()
-        EXT = os.path.splitext(RES)[-1][1: ]
-        EXE = mailcap.findmatch(CAPS, 'application/{}'.format(EXT))[1]['view']
+        MIME = mimetypes.guess_type(RES)[0]
+        EXE = mailcap.findmatch(CAPS, MIME)[1]['view']
 
     subprocess.Popen(EXE % RES, shell=True)
