@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding: utf-8
 """
-    small script to find and open a paper via regular expression
+    add description here
 """
 __author__ = 'Henning Dickten'
 
@@ -12,9 +12,9 @@ import os
 import sys
 import fnmatch
 import subprocess
+import mailcap
 
 PATH = '/media/freenas/pappos'
-EXE = '/usr/bin/acroread'
 
 
 def parse_args(argv=None):
@@ -41,7 +41,7 @@ def parse_args(argv=None):
     return args
 
 
-def find_paper(expressions, exe, use_raw=False):
+def find_paper(expressions, use_raw=False):
     """
     Finds all files matching on expression
     """
@@ -72,13 +72,17 @@ def find_paper(expressions, exe, use_raw=False):
         sys.exit(0)
 
     else:
-        # escape fname
-        fname = '"{}"'.format(results[int(selected) - 1])
-        print fname
-        subprocess.Popen(exe + ' ' + fname, shell=True)
+        return results[int(selected) - 1]
 
 if __name__ == '__main__':
     ARGS = parse_args()
+    RES = find_paper(ARGS.regex, ARGS.raw)
+
     if ARGS.mendeley is True:
-        EXE = '/usr/bin/mendeleydesktop'
-    find_paper(ARGS.regex, EXE, ARGS.raw)
+        EXE = "/usr/bin/mendeleydesktop '%s'"
+    else:
+        CAPS = mailcap.getcaps()
+        EXT = os.path.splitext(RES)[-1][1: ]
+        EXE = mailcap.findmatch(CAPS, 'application/{}'.format(EXT))[1]['view']
+
+    subprocess.Popen(EXE % RES, shell=True)
