@@ -441,6 +441,21 @@ zle -N run-with-sudo
   }
 
 
+    # ezjail do: executes a command in jail via ezjail
+    if (( $+commands[ezjail-admin] )); then
+        ezdo() {
+            if (( $# < 2 ))
+                then echo "usage: ezdo jailname command"
+            else
+                JAIL=${argv[1]}
+                COMMAND=${argv[2, -1]}
+
+                print "executing '$COMMAND' in jail '$JAIL'"
+                sudo ezjail-admin console -e "$COMMAND" $JAIL
+            fi
+        }
+    fi
+
 # }}}
 #
 #
