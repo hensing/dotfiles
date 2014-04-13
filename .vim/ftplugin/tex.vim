@@ -25,3 +25,10 @@ inoremap <buffer> <silent> <Down> <C-o>gj
 inoremap <buffer> <silent> <Home> <C-o>g<Home>
 inoremap <buffer> <silent> <End>  <C-o>g<End>
 
+" latexbox:
+imap <buffer> [[     \begin{
+imap <buffer> ]]     <Plug>LatexCloseCurEnv
+nmap <buffer> <F5>   <Plug>LatexChangeEnv
+vmap <buffer> <F7>   <Plug>LatexWrapSelection
+vmap <buffer> <S-F7> <Plug>LatexEnvWrapSelection
+imap <buffer> ((     \eqref{

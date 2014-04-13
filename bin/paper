@@ -1,39 +1,89 @@
-#!/bin/bash
+#!/usr/bin/python
+# coding: utf-8
+"""
+    add description here
+"""
+__author__ = 'Henning Dickten'
 
-# configure section
-######################
-PAPPOS=/media/freenas/pappos/
-READER=evince
-#######################
 
-# set promt
-PS3="Type a number or 'q' to quit: "
+import argparse
+import re
+import os
+import sys
+import fnmatch
+import subprocess
+import mailcap
+import mimetypes
 
-# get files:
-clear
-if [[ $1 == '-m' ]]; then
-    READER=mendeleydesktop
-    SEARCH=$2
-else
-    SEARCH=$1
-fi
-echo "Looking for $SEARCH"
+PATH = '/media/freenas/pappos'
 
-fileList=$(find $PAPPOS -iname "*$SEARCH*")
 
-IFS=$'\n'
-# Show a menu and ask for input. If the user entered a valid choice,
-# then invoke the editor on that file
-while [ true ];
-do
-    select fileName in $fileList; do
-        case $fileName in
-            q)
-                break;;
-            *)
-                if [ -n "$fileName" ]; then
-                    nohup $READER ${fileName} 2>/dev/null &
-                fi
-        esac
-    done
-done
+def parse_args(argv=None):
+    """
+    Parser für die Console
+    """
+    if argv is None:
+        argv = sys.argv
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('regex', metavar='regex', nargs='+',
+                        help='search expression')
+
+    parser.add_argument('-m', '--mendeley', dest='mendeley',
+                        action='store_true',
+                        help='open in Mendeley Desktop')
+
+    parser.add_argument('-r', '--raw', dest='raw',
+                        action='store_true',
+                        help='use raw expression (without additional *)')
+
+    args = parser.parse_args()
+    return args
+
+
+def find_paper(expressions, use_raw=False):
+    """
+    Finds all files matching on expression
+    """
+    results = []
+
+    for expression in expressions:
+        if use_raw is False:
+            expression = expression.strip('*') + '*'
+
+        reg_expr = re.compile(fnmatch.translate(expression), re.IGNORECASE)
+
+        for root, _, files in os.walk(PATH, topdown=True):
+            results += [os.path.join(root, i) for
+                       i in files if re.match(reg_expr, i)]
+
+    if len(results) == 0:
+        print('ERROR nothing found for "{}"\n'.format(' ∨ '.join(expressions)))
+        sys.exit(0)
+    results.sort()
+
+    print('Results for "{}:"\n'.format(' ∨ '.join(expressions)))
+    for res_num, res in enumerate(results):
+        print('{: >4}: {}'.format(res_num + 1, res.lstrip(PATH)))
+
+    selected = raw_input('select paper or \'q\' to quit> ')
+
+    if selected == 'q':
+        sys.exit(0)
+
+    else:
+        return results[int(selected) - 1]
+
+if __name__ == '__main__':
+    ARGS = parse_args()
+    RES = find_paper(ARGS.regex, ARGS.raw)
+
+    if ARGS.mendeley is True:
+        EXE = "/usr/bin/mendeleydesktop '%s'"
+    else:
+        CAPS = mailcap.getcaps()
+        MIME = mimetypes.guess_type(RES)[0]
+        EXE = mailcap.findmatch(CAPS, MIME)[1]['view']
+
+    subprocess.Popen(EXE % RES, shell=True)
