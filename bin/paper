@@ -69,7 +69,7 @@ def find_paper(expressions, use_raw=False):
 
     selected = raw_input('select paper or \'q\' to quit> ')
 
-    if selected == 'q':
+    if selected == 'q' or selected == '':
         sys.exit(0)
 
     else:
