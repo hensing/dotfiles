@@ -397,6 +397,12 @@ zle -N run-with-sudo
       cd +${WOHIN:=0}
   }
 
+  # zd: fast directory switching via https://github.com/rupa/z
+  if [[ -e ~/.zsh/z/z.sh ]]; then
+  export _Z_CMD=zd
+  . ~/.zsh/z/z.sh
+  fi
+
   # Funktion zum auffinden fehlender parts
   rfind() {
     HEAD=$1
