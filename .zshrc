@@ -109,42 +109,40 @@ alias zcp='zmv -C'
 
 alias j='jobs -l'
 
-alias cs='condor_status'
-alias css='diff ~/.cs =(cs |grep -e slot.@ |cut -d " " -f1 |cut -d "@" -f2 |uniq)'
-alias cq='condor_q -dag -wide'
-alias cj='condor_q -long -attributes RemoteHost,Arguments,NumJobStarts,ImageSize,LastJobStatus,JobStatus'
-alias cver='condor_status -master -autoformat:t Name CondorVersion'
-alias crm='rm **/*.(err|out|log|pyc|dag.*)'
+# htcondor alias
+if (( $+commands[condor_status] )) ; then
+    alias cs='condor_status'
+    alias css='diff ~/.cs =(cs |grep -e slot.@ |cut -d " " -f1 |cut -d "@" -f2 |uniq)'
+    alias cq='condor_q -dag -wide'
+    alias cj='condor_q -long -attributes RemoteHost,Arguments,NumJobStarts,ImageSize,LastJobStatus,JobStatus'
+    alias cver='condor_status -master -autoformat:t Name CondorVersion'
+    alias crm='rm **/*.(err|out|log|pyc|dag.*)'
+fi
 
 
 # git alias
-alias g='git'
-alias ga='git add'
-alias gs='git status'
-alias gl='git pull --prune'
-alias glog="git log --graph --pretty=format:'%Cred%h%Creset %an: %s - %Creset %C(yellow)%d%Creset %Cgreen(%cr)%Creset' --abbrev-commit --date=relative"
-alias gp='git push origin HEAD'
-alias gd='git diff'
-alias gci='git commit'
-alias gca='git commit -a'
-alias gco='git checkout'
-alias gb='git branch'
-alias gs='git status -sb' # upgrade your git if -sb breaks for you. it's fun.
-#alias grm="git status | grep deleted | awk '{print \$3}' | xargs git rm"
+if (( $+commands[git] )) ; then
+    alias g='git'
+    alias ga='git add'
+    alias gs='git status'
+    alias gl='git pull --prune'
+    alias glog="git log --graph --pretty=format:'%Cred%h%Creset %an: %s - %Creset %C(yellow)%d%Creset %Cgreen(%cr)%Creset' --abbrev-commit --date=relative"
+    alias gp='git push origin HEAD'
+    alias gd='git diff'
+    alias gci='git commit'
+    alias gca='git commit -a'
+    alias gco='git checkout'
+    alias gb='git branch'
+    alias gs='git status -sb' # upgrade your git if -sb breaks for you. it's fun.
+fi
 
 # eigene IP im WAN, falls hinter router
 alias myip='curl checkip.dyndns.org -s | sed "s/[^0-9]*//" | fgrep . | cut -d "<" -f 1'
 
 # aticonfig alias
 alias ati='aticonfig --od-gettemperature --od-getclocks --adapter=all'
-
-
 # }}}
 
-# Mate trinken
-alias mate='cd ~/spielen/mate/Mate; M=`ls -l | wc -l`; echo "Trinke Mate № $M…"; sleep 3; echo `date` > mate_$M; git add mate_$M; git commit -m "Mate $M getrunken"; cd -'
-alias home='cd ~/spielen/mate/Mate; M=`ls -l | wc -l`; echo "Trinke Mate № $M…"; sleep 3; echo `date` > mate_$M; git add mate_$M; git commit -m "Mate $M nach Hause genommen"; cd -'
-alias bier='cd ~/spielen/mate/Bier; M=`ls -l | wc -l`; echo "Trinke Bier № $M…"; sleep 3; echo `date` > bier_$M; git add bier_$M; git commit -m "Bier $M getrunken"; cd -'
 
 # tmux completions:
 if (( $+commands[tmux] )) ; then
@@ -345,7 +343,6 @@ zle -N run-with-sudo
 
   # tex-müll entfernen
   rmtex() {
-    #find . -maxdepth 1 -regex ".*\(\~\|\.log\|\.nav\|\.snm\|\.toc\|\.cp\|\.fn\|\.tp\|\.vr\|\.pg\|\.bbl\|\#\|\.blg\|\.ilg\|\.dvi\|\.aux\)" -exec rm -vf {} \; ; find . -maxdepth 1 -type d -name "auto" -exec rm -vfr {} \;
     rm **/*.(nav|snm|log|aux|out|toc|bbl|blg|dvi|synctex.gz|pdfsync|alg|acr|acn|glg|gls|glo|slg|syi|syg|ist|nlo|*~)
   }
 
