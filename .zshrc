@@ -343,7 +343,7 @@ zle -N run-with-sudo
 
   # tex-müll entfernen
   rmtex() {
-    rm **/*.(nav|snm|log|aux|out|toc|bbl|blg|dvi|synctex.gz|pdfsync|alg|acr|acn|glg|gls|glo|slg|syi|syg|ist|nlo|*~)
+    rm **/*.(nav|snm|log|aux|out|toc|bbl|blg|dvi|synctex.gz|pdfsync|alg|acr|acn|glg|gls|glo|slg|syi|syg|ist|nlo|*~|fdb_latexmk|fls)
   }
 
   
