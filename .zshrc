@@ -512,7 +512,7 @@ bindkey '^Xs' run-with-sudo
 
 # python virtualenv
 export WORKON_HOME=~/.virtualenvs
-VIRTUALENVWRAPPER=/usr/share/virtualenvwrapper/virtualenvwrapper_lazy.sh
+VIRTUALENVWRAPPER=/usr/local/bin/virtualenvwrapper_lazy.sh
 [ -f $VIRTUALENVWRAPPER ] && source $VIRTUALENVWRAPPER
 
 # dircolors:
