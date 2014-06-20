@@ -17,3 +17,5 @@ do
     ln -f -s ~/.dotfiles/$file ~/$file
 done
 
+ln -sf  ~/.dotfiles/.git/modules/.vim/bundle/vundle ~/.vim/bundle/vundle/.git
+

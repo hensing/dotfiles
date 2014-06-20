@@ -13,6 +13,7 @@ Plugin 'gmarik/vundle'
 
 " Plugins
 Plugin 'Lokaltog/vim-powerline'             " powerline
+"Plugin 'bling/vim-airline'                  " powerline
 Plugin 'syntastic'                          " syntax checker
 Plugin 'davidhalter/jedi-vim'               " python completion
 Plugin 'hynek/vim-python-pep8-indent'       " python pep8
@@ -22,6 +23,12 @@ Plugin 'tpope/vim-fugitive'                 " git commit/diff/...
 Plugin 'scrooloose/nerdcommenter'           " comments
 Plugin 'thomwiggers/vim-colors-solarized'   " solarized colors
 Plugin 'kshenoy/vim-signature'              " display,toggle and iterate marks
+Plugin 'kien/ctrlp.vim'                     " ctrl p filebrowser
+Plugin 'tpope/vim-surround'                 " parentheses, brackets, ...
+Plugin 'SirVer/ultisnips'                   " sniplets
+Plugin 'terryma/vim-multiple-cursors'       " multiple cursors :)
+Plugin 'ivanov/vim-ipython'                 " communication with ipython kernels
+
 
 " Hennings Einstellungen
 set nu              " Zeilen nummerieren
@@ -32,7 +39,7 @@ set enc=utf-8
 set nobackup          " Erstellt ein Backup (file~) von jeder Datei
 
 set matchpairs=(:),[:],{:},<:>  " Klammer-Paare kennzeichnen
-set showmatch       " zeigt kurz öffnende/schließende Klammer an 
+set showmatch       " zeigt kurz öffnende/schließende Klammer an
 
 " persistent undo in vim 7.3:
 if v:version >= 703
@@ -104,7 +111,7 @@ set hidden
 " make the history longer
 set history=500
 
-" Stop the highlighting for the 'hlsearch' option. 
+" Stop the highlighting for the 'hlsearch' option.
 set hlsearch
 
 " ignore case-sensitive while search
@@ -148,7 +155,7 @@ set tags=./tags,tags
 set wildchar=<TAB>
 
 " When 'wildmenu' is on, command-line completion operates in an
-" enhanced mode. 
+" enhanced mode.
 set wildmenu
 set wildmode=longest,list
 
