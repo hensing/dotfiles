@@ -15,7 +15,8 @@ Plugin 'gmarik/vundle'
 Plugin 'Lokaltog/vim-powerline'             " powerline
 "Plugin 'bling/vim-airline'                  " powerline
 Plugin 'syntastic'                          " syntax checker
-Plugin 'davidhalter/jedi-vim'               " python completion
+Plugin 'Valloric/YouCompleteMe'             " code completion (incl. jedi python completion)
+"Plugin 'davidhalter/jedi-vim'               " python completion
 Plugin 'hynek/vim-python-pep8-indent'       " python pep8
 Plugin 'LaTeX-Box-Team/LaTeX-Box'           " Lightweight Toolbox for LaTeX
 Plugin 'airblade/vim-gitgutter'             " git changes in gutter
@@ -192,3 +193,6 @@ map <F11> <C-T>
 
 " Vorlagen für neue Dateien verwenden:
 au BufNewFile *.py 0r ~/.vim/skeleton/skeleton.py | normal | Gdd
+
+" YouCompleteMe
+let g:ycm_global_ycm_extra_conf = "~/.vim/.ycm_extra_conf.py"
