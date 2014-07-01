@@ -44,7 +44,7 @@ def parse_args(argv=None):
 
 def find_paper(expressions, use_raw=False):
     """
-    Finds all files matching on expression
+    Returns a list of files matching expression
     """
     results = []
 
@@ -58,32 +58,56 @@ def find_paper(expressions, use_raw=False):
             results += [os.path.join(root, i) for
                        i in files if re.match(reg_expr, i)]
 
-    if len(results) == 0:
-        print('ERROR nothing found for "{}"\n'.format(' ∨ '.join(expressions)))
-        sys.exit(0)
     results.sort()
+    return results
 
-    print('Results for "{}:"\n'.format(' ∨ '.join(expressions)))
+
+def open_paper(fname, args):
+    """
+    opens a paper
+    """
+    if args.mendeley is True:
+        exe = "/usr/bin/mendeleydesktop '%s'"
+    else:
+        caps = mailcap.getcaps()
+        mime = mimetypes.guess_type(fname)[0]
+        exe = mailcap.findmatch(caps, mime)[1]['view']
+
+    subprocess.Popen(exe % fname, shell=True)
+
+
+def main():
+    "the main routine"
+    args = parse_args()
+    results = find_paper(args.regex, args.raw)
+
+    if len(results) == 0:
+        print('nothing found for {}. Exit.'.format(' ∨ '.join(args.regex)))
+        sys.exit(1)
+
+    print('Results for "{}:"\n'.format(' ∨ '.join(args.regex)))
     for res_num, res in enumerate(results):
         print('{: >4}: {}'.format(res_num + 1, res.lstrip(PATH)))
 
-    selected = raw_input('select paper or \'q\' to quit> ')
+    # select paper
+    while True:
+        selected = raw_input('select paper; \'a\' for all or \'q\' to quit> ')
+        # exit
+        if selected == 'q' or selected == '':
+            sys.exit(0)
 
-    if selected == 'q' or selected == '':
-        sys.exit(0)
+        # open all
+        elif selected == 'a':
+            for fname in results:
+                open_paper(fname, args)
+            sys.exit(1)
 
-    else:
-        return results[int(selected) - 1]
+        # number selected
+        else:
+            try:
+                open_paper(results[int(selected) - 1], args)
+            except IndexError:
+                print('paper number out of range.')
 
 if __name__ == '__main__':
-    ARGS = parse_args()
-    RES = find_paper(ARGS.regex, ARGS.raw)
-
-    if ARGS.mendeley is True:
-        EXE = "/usr/bin/mendeleydesktop '%s'"
-    else:
-        CAPS = mailcap.getcaps()
-        MIME = mimetypes.guess_type(RES)[0]
-        EXE = mailcap.findmatch(CAPS, MIME)[1]['view']
-
-    subprocess.Popen(EXE % RES, shell=True)
+    main()
