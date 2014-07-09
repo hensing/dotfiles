@@ -26,12 +26,12 @@ Plugin 'thomwiggers/vim-colors-solarized'   " solarized colors
 Plugin 'kshenoy/vim-signature'              " display,toggle and iterate marks
 Plugin 'kien/ctrlp.vim'                     " ctrl p filebrowser
 Plugin 'tpope/vim-surround'                 " parentheses, brackets, ...
-Plugin 'SirVer/ultisnips'                   " sniplets
+Plugin 'SirVer/ultisnips'                   " sniplets engine
+Plugin 'honza/vim-snippets'                 " sniplets
 Plugin 'terryma/vim-multiple-cursors'       " multiple cursors :)
 Plugin 'ivanov/vim-ipython'                 " communication with ipython kernels
+Plugin 'ervandew/supertab'                  " smart tab key
 
-
-" Hennings Einstellungen
 set nu              " Zeilen nummerieren
 set autoindent      " Auto Einrückung
 set smartindent     " Aktiviert inteliggente C-Syntax rkennung und Einrückung
@@ -58,10 +58,19 @@ set softtabstop=4   " Anzahl der Leerzeichen, die einem Tab entsprechen
 set cindent         " Setzt shiftwidth Leerzeichen am Zeilenanfang und tabstop / softtabstop sonst
 set expandtab       " Tabs are 4 Spaces and Spaces are Spaces!
 
+" mouse and gui
 " system clipboard verwenden
 if has('gui')
     set clipboard=unnamed
 endif
+
+" mouse: scrolling and selecting with mouse
+set mouse=a
+" menu on right-click im gvim
+set mousemodel=popup
+"hide cursor when typing
+set mousehide
+
 
 " Colors? Plugins? Sure ..
 syntax enable
@@ -195,4 +204,21 @@ map <F11> <C-T>
 au BufNewFile *.py 0r ~/.vim/skeleton/skeleton.py | normal | Gdd
 
 " YouCompleteMe
+
+" tab via supertab
+let g:SuperTabDefaultCompletionType = '<S-TAB>'
+let g:ycm_key_list_select_completion = ['<S-TAB>', '<Down>']
+let g:ycm_key_list_previous_completion = ['<UP>']
+
+nnoremap <leader>di :YcmShowDetailedDiagnostic<CR>
 let g:ycm_global_ycm_extra_conf = "~/.vim/.ycm_extra_conf.py"
+
+" ultisnips
+" next / last snips
+let g:UltiSnipsExpandTrigger="<tab>"
+let g:UltiSnipsJumpForwardTrigger="<tab>"
+let g:UltiSnipsJumpBackwardTrigger="<C-B>"
+
+" ftdetect for ultisnip
+autocmd FileType * call UltiSnips#FileTypeChanged()
+autocmd BufNewFile,BufRead *.snippets setf snippets
