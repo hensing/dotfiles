@@ -1,8 +1,9 @@
 #!/usr/bin/python
 # coding: utf-8
 """
-    add description here
+    Script to find and select files matching regular expression
 """
+from __future__ import print_function
 __author__ = 'Henning Dickten'
 
 
@@ -56,7 +57,7 @@ def find_paper(expressions, use_raw=False):
 
         for root, _, files in os.walk(PATH, topdown=True):
             results += [os.path.join(root, i) for
-                       i in files if re.match(reg_expr, i)]
+                        i in files if re.match(reg_expr, i)]
 
     results.sort()
     return results

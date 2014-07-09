@@ -12,6 +12,11 @@
 
 # Files
 data.location=~/.task
+default.command=next +paper or +work or +uni
+
+# set urgency of task without priority (default 0)
+#urgency.pri.L.coefficient=0.3
+#urgency.pri.none.coefficient=0.4  # default 0
 
 # Color theme (uncomment one to use)
 #include /usr/share/task/light-16.theme
@@ -22,12 +27,15 @@ data.location=~/.task
 #include /usr/share/task/dark-green-256.theme
 #include /usr/share/task/dark-blue-256.theme
 #include /usr/share/task/dark-violets-256.theme
-#include /usr/share/task/dark-yellow-green.theme
+include /usr/share/task/dark-yellow-green.theme
 #include /usr/share/task/dark-gray-256.theme
 #include /usr/share/task/solarized-dark-256.theme
 
-taskd.server=blobhal.de:53589
+include /usr/share/task/holidays.de-DE.rc
+
+taskd.server=10.8.0.1:53589
 taskd.certificate=~hensing/.task/client.cert.pem
 taskd.key=~hensing/.task/client.key.pem
 taskd.ca=~hensing/.task/ca.cert.pem
 taskd.credentials=hensing/hensing/5133cfbe-3e86-4ae2-842d-90fdbacb16a8
+weekstart=Monday

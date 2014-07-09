@@ -5,6 +5,8 @@ SAVEHIST=65536
 HISTSIZE=100000
 DIRSTACKSIZE=10
 
+fpath=(~/.zsh/completions $fpath)
+
 export EDITOR=vim
 export PAGER=less
 export LESS=XFRaeiM # the XFR is important here: don't mess with the terminal!
