@@ -16,7 +16,7 @@ Plugin 'Lokaltog/vim-powerline'             " powerline
 "Plugin 'bling/vim-airline'                  " powerline
 Plugin 'syntastic'                          " syntax checker
 Plugin 'Valloric/YouCompleteMe'             " code completion (incl. jedi python completion)
-"Plugin 'davidhalter/jedi-vim'               " python completion
+Plugin 'davidhalter/jedi-vim'               " python completion
 Plugin 'hynek/vim-python-pep8-indent'       " python pep8
 Plugin 'LaTeX-Box-Team/LaTeX-Box'           " Lightweight Toolbox for LaTeX
 Plugin 'airblade/vim-gitgutter'             " git changes in gutter
