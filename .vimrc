@@ -64,12 +64,12 @@ if has('gui')
     set clipboard=unnamed
 endif
 
-" mouse: scrolling and selecting with mouse
-set mouse=a
-" menu on right-click im gvim
-set mousemodel=popup
-"hide cursor when typing
-set mousehide
+"" mouse: scrolling and selecting with mouse
+"set mouse=a
+"" menu on right-click im gvim
+"set mousemodel=popup
+""hide cursor when typing
+"set mousehide
 
 
 " Colors? Plugins? Sure ..
