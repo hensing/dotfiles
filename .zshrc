@@ -59,9 +59,9 @@ setopt nobeep               # no beeping, honking, whistling...
 
 
 if [[ $OSTYPE == linux-gnu ]]; then
-    PATH="$HOME/bin:/usr/local/bin:/usr/local/sbin:/usr/local/texlive/2012/bin/x86_64-linux:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin"
+    PATH="$HOME/bin:/usr/local/bin:/usr/local/sbin:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin:/usr/games"
 else
-    PATH="$HOME/bin:/usr/local/bin:/usr/local/sbin:/usr/local/texlive/2012/bin/x86_64-darwin:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin"
+    PATH="$HOME/bin:/usr/local/bin:/usr/local/sbin:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin"
 fi
 
 # alias {{{

@@ -12,7 +12,7 @@
 
 # Files
 data.location=~/.task
-default.command=next +paper or +work or +uni
+default.command=next +uni or +work or +paper
 
 # set urgency of task without priority (default 0)
 #urgency.pri.L.coefficient=0.3
