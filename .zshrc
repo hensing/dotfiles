@@ -74,10 +74,12 @@ if [[ $OSTYPE == linux-gnu ]]; then
     alias ak='sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys'
     if (( $+commands[aptitude] )); then
         alias as='aptitude search'
+        alias aS='aptitude show'
         alias ai='sudo aptitude install'
         alias auu='sudo aptitude update; sudo aptitude upgrade'
     else
         alias as='apt-cache search'
+        alias as='apt-cache show'
         alias ai='sudo apt-get install'
         alias auu='sudo apt-get update; sudo apt-get upgrade'
     fi
