@@ -14,7 +14,8 @@ Plugin 'gmarik/vundle'
 " Plugins
 Plugin 'Lokaltog/vim-powerline'             " powerline
 "Plugin 'bling/vim-airline'                  " powerline
-Plugin 'syntastic'                          " syntax checker
+"Plugin 'syntastic'                          " syntax checker
+Plugin 'ervandew/supertab'                  " smart tab key
 Plugin 'Valloric/YouCompleteMe'             " code completion (incl. jedi python completion)
 Plugin 'davidhalter/jedi-vim'               " python completion
 Plugin 'hynek/vim-python-pep8-indent'       " python pep8
@@ -26,11 +27,11 @@ Plugin 'thomwiggers/vim-colors-solarized'   " solarized colors
 Plugin 'kshenoy/vim-signature'              " display,toggle and iterate marks
 Plugin 'kien/ctrlp.vim'                     " ctrl p filebrowser
 Plugin 'tpope/vim-surround'                 " parentheses, brackets, ...
+Plugin 'Raimondi/delimitMate'               " insert pairs of brackets automatically
 Plugin 'SirVer/ultisnips'                   " sniplets engine
 Plugin 'honza/vim-snippets'                 " sniplets
-Plugin 'terryma/vim-multiple-cursors'       " multiple cursors :)
+"Plugin 'terryma/vim-multiple-cursors'       " multiple cursors :)
 Plugin 'ivanov/vim-ipython'                 " communication with ipython kernels
-Plugin 'ervandew/supertab'                  " smart tab key
 
 set nu              " Zeilen nummerieren
 set autoindent      " Auto Einrückung
@@ -84,6 +85,7 @@ filetype indent on
 
 " display control chars
 set list listchars=tab:»·,trail:·
+set list
 
 "highlight the cursor line
 set cursorline
@@ -93,6 +95,13 @@ let g:Powerline_symbols = 'fancy'
 
 " modeline
 "set modeline
+
+" keep selection when re-indenting
+vnoremap < <gv
+vnoremap > >gv
+
+" toggle paste mode
+set pastetoggle=<F12>
 
 " 2 is much smarter
 set backspace=2
@@ -170,11 +179,11 @@ set wildmenu
 set wildmode=longest,list
 
 " omnicompletion keybinding
-inoremap <C-Space> <C-x><C-o>
-inoremap <C-@> <C-Space>
-if !has("gui_running")
-    inoremap <C-@> <C-x><C-o>
-endif
+"inoremap <C-Space> <C-x><C-o>
+"inoremap <C-@> <C-Space>
+"if !has("gui_running")
+"    inoremap <C-@> <C-x><C-o>
+"endif
 
 " terminal stuff
 if &term=="rxvt"
@@ -197,8 +206,8 @@ map ,ls :!ls <CR>
 cmap w!! %!sudo tee > /dev/null %
 
 " Hilfe Texte navigieren:
-map <F12> <C-]>
-map <F11> <C-T>
+map <F11> <C-]>
+map <F10> <C-T>
 
 " Vorlagen für neue Dateien verwenden:
 au BufNewFile *.py 0r ~/.vim/skeleton/skeleton.py | normal | Gdd
@@ -206,19 +215,32 @@ au BufNewFile *.py 0r ~/.vim/skeleton/skeleton.py | normal | Gdd
 " YouCompleteMe
 
 " tab via supertab
-let g:SuperTabDefaultCompletionType = '<S-TAB>'
-let g:ycm_key_list_select_completion = ['<S-TAB>', '<Down>']
-let g:ycm_key_list_previous_completion = ['<UP>']
+let g:SuperTabDefaultCompletionType = '<C-n>'
 
-nnoremap <leader>di :YcmShowDetailedDiagnostic<CR>
+" ycm via Ctrl-n == tab via supertab
+let g:ycm_key_list_select_completion = ['<C-n>', '<Down>']
+let g:ycm_key_list_previous_completion = ['<C-p>', '<UP>']
 let g:ycm_global_ycm_extra_conf = "~/.vim/.ycm_extra_conf.py"
 
+" disable jedi completion and popups:
+let g:jedi#completions_command = ""
+let g:jedi#popup_on_dot = 0
+let g:jedi#popup_select_first = 0
+let g:jedi#use_tabs_not_buffers = 0
+
+" jedi goto, docu etc...
+let g:jedi#goto_assignments_command = "<leader>ja"
+let g:jedi#goto_definitions_command = "<leader>jd"
+let g:jedi#documentation_command = "<leader>jh"
+let g:jedi#rename_command = "<leader>jr"
+let g:jedi#usages_command = "<leader>js"    " show similar commands
+
 " ultisnips
-" next / last snips
 let g:UltiSnipsExpandTrigger="<tab>"
 let g:UltiSnipsJumpForwardTrigger="<tab>"
-let g:UltiSnipsJumpBackwardTrigger="<C-B>"
+let g:UltiSnipsJumpBackwardTrigger="<s-tab>"
 
 " ftdetect for ultisnip
 autocmd FileType * call UltiSnips#FileTypeChanged()
 autocmd BufNewFile,BufRead *.snippets setf snippets
+
