@@ -32,3 +32,5 @@ nmap <buffer> <F5>   <Plug>LatexChangeEnv
 vmap <buffer> <F7>   <Plug>LatexWrapSelection
 vmap <buffer> <S-F7> <Plug>LatexEnvWrapSelection
 imap <buffer> ((     \eqref{
+" don't jump to quickfix when error occurs
+let g:LatexBox_quickfix = 2
