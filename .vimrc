@@ -14,7 +14,7 @@ Plugin 'gmarik/vundle'
 " Plugins
 Plugin 'Lokaltog/vim-powerline'             " powerline
 "Plugin 'bling/vim-airline'                  " powerline
-"Plugin 'syntastic'                          " syntax checker
+Plugin 'syntastic'                          " syntax checker
 Plugin 'ervandew/supertab'                  " smart tab key
 Plugin 'Valloric/YouCompleteMe'             " code completion (incl. jedi python completion)
 Plugin 'davidhalter/jedi-vim'               " python completion
@@ -27,7 +27,7 @@ Plugin 'thomwiggers/vim-colors-solarized'   " solarized colors
 Plugin 'kshenoy/vim-signature'              " display,toggle and iterate marks
 Plugin 'kien/ctrlp.vim'                     " ctrl p filebrowser
 Plugin 'tpope/vim-surround'                 " parentheses, brackets, ...
-Plugin 'Raimondi/delimitMate'               " insert pairs of brackets automatically
+"Plugin 'Raimondi/delimitMate'               " insert pairs of brackets automatically
 Plugin 'SirVer/ultisnips'                   " sniplets engine
 Plugin 'honza/vim-snippets'                 " sniplets
 "Plugin 'terryma/vim-multiple-cursors'       " multiple cursors :)
