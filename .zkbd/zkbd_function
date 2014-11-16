@@ -197,7 +197,7 @@ EOF
 			print Warning: Backspace sends "${(q)key[Backspace]}"
 		fi
 	fi
-	local termID=$OSTYPE
+	local termID=${OSTYPE//[0-9.]/}
 
 	command mv $zkbd/$TERM.tmp $zkbd/$TERM-$termID
 	cat <<EOF

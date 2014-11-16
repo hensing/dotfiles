@@ -475,7 +475,8 @@ fi
 source ~/.zkbd/zkbd_function
 #autoload zkbd
 function zkbd_file() {
-    [[ -f ~/.zkbd/${TERM}-${OSTYPE} ]] && printf '%s' ~/".zkbd/${TERM}-${OSTYPE}" && return 0
+    local termID=${OSTYPE//[0-9.]/}
+    [[ -f ~/.zkbd/${TERM}-${termID} ]] && printf '%s' ~/".zkbd/${TERM}-${termID}" && return 0
     return 1
 }
 
