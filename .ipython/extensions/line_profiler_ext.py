@@ -9,10 +9,9 @@ try:
     import line_profiler
 except ImportError:
     pass
-
-
-def load_ipython_extension(ip):
-    ip.define_magic('lprun', line_profiler.magic_lprun)
+else:
+    def load_ipython_extension(ip):
+        ip.define_magic('lprun', line_profiler.magic_lprun)
 
 
 if __name__ == '__main__':
