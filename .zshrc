@@ -463,6 +463,19 @@ zle -N run-with-sudo
         }
     fi
 
+  # Funktion für mv --parent
+  pmv() {
+    if  [ ! -z $1 ] ; then
+        source=$1;
+        target=$2;
+        mkdir -p "$target"/"$(dirname $source)"
+        mv "$source" "$target"/"$(dirname $source)"/
+    else
+        print "simulates 'mv --parent'"
+        print "usage: pmv /path/to/source path/to/target"
+    fi
+  }
+
 # }}}
 #
 #
