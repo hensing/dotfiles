@@ -242,7 +242,7 @@ bar {
 }
 
 # autostart:
-exec gnome-settings-daemon
+exec unity-settings-daemon
 #exec nm-applet
 exec gnome-sound-applet
 exec /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1
