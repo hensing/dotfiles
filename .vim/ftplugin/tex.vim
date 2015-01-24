@@ -1,17 +1,17 @@
 set tabstop=4       " Anzahl der Zeichen, die ein Tab breit dargestellt wird
+set expandtab       " Tabs are 4 Spaces and Spaces are Spaces!
 set shiftwidth=4    " Autoeinrückung: 4 Leerzeichen einrücken zum Zeilenbeginn, sonst tab
 set softtabstop=4   " Anzahl der Leerzeichen, die einem Tab entsprechen
-set cindent         " Setzt shiftwidth Leerzeichen am Zeilenanfang und tabstop / softtabstop sonst
-set expandtab       " Tabs are 4 Spaces and Spaces are Spaces!
+"set nocindent         " Setzt shiftwidth Leerzeichen am Zeilenanfang und tabstop / softtabstop sonst
 
-
-set formatoptions=t
+set smartindent
+set formatoptions=tcqn
 
 set wrap
+set wrapmargin=0
+set textwidth=0
 set linebreak
 set nolist
-set textwidth=0
-set wrapmargin=0
 set virtualedit=
 set display+=lastline
 
