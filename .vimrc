@@ -56,7 +56,7 @@ endif
 set tabstop=4       " Anzahl der Zeichen, die ein Tab breit dargestellt wird
 set shiftwidth=4    " Autoeinrückung: 4 Leerzeichen einrücken zum Zeilenbeginn, sonst tab
 set softtabstop=4   " Anzahl der Leerzeichen, die einem Tab entsprechen
-set cindent         " Setzt shiftwidth Leerzeichen am Zeilenanfang und tabstop / softtabstop sonst
+"set cindent         " Setzt shiftwidth Leerzeichen am Zeilenanfang und tabstop / softtabstop sonst
 set expandtab       " Tabs are 4 Spaces and Spaces are Spaces!
 
 " mouse and gui
