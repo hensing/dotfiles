@@ -261,3 +261,4 @@ exec_always xautolock -time 10 -locker 'i3lock -i ~/Pictures/lockscreen.png'
 
 # Startup programs
 exec_always dropbox start
+exec_always owncloud
