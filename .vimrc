@@ -133,9 +133,11 @@ set history=500
 " Stop the highlighting for the 'hlsearch' option.
 set hlsearch
 
-" ignore case-sensitive while search
-" allow no-case-sensitive-search
-set noignorecase
+" ignore case-sensitivity in search patterns
+" manual exception: \Cmypattern
+set ignorecase
+" ignore case-sensitivity except for patterns containing upper case
+set smartcase
 
 " show statusline
 set laststatus=2
