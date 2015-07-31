@@ -16,7 +16,8 @@ import subprocess
 import mailcap
 import mimetypes
 
-PATH = '/media/freenas/pappos'
+#PATH = '/media/freenas/pappos'
+PATH = '/home/hensing/ownCloud/pappos'
 
 
 def parse_args(argv=None):
@@ -31,6 +32,11 @@ def parse_args(argv=None):
     parser.add_argument('regex', metavar='regex', nargs='+',
                         help='search expression')
 
+    parser.add_argument('-o', '--or', dest='logic',
+                        default=set.intersection,
+                        action='store_const', const=set.union,
+                        help='match pattern1 OR pattern2 OR pattern3…')
+
     parser.add_argument('-m', '--mendeley', dest='mendeley',
                         action='store_true',
                         help='open in Mendeley Desktop')
@@ -43,21 +49,33 @@ def parse_args(argv=None):
     return args
 
 
-def find_paper(expressions, use_raw=False):
+def find_paper(expressions, logic, use_raw=False):
     """
     Returns a list of files matching expression
     """
     results = []
 
+    compiled_expressions = []
+
+    # compile regex
     for expression in expressions:
         if use_raw is False:
-            expression = expression.strip('*') + '*'
+            expression = '*' + expression.strip('*') + '*'
 
-        reg_expr = re.compile(fnmatch.translate(expression), re.IGNORECASE)
+        compiled_expressions.append(
+            re.compile(fnmatch.translate(expression), re.IGNORECASE))
 
-        for root, _, files in os.walk(PATH, topdown=True):
-            results += [os.path.join(root, i) for
-                        i in files if re.match(reg_expr, i)]
+    # search for files
+    for root, _, files in os.walk(PATH, topdown=True):
+
+        temp_res = []
+        # filter with regex
+        for reg_expr in compiled_expressions:
+            temp_res.append(set((os.path.join(root, i)
+                                 for i in files if re.match(reg_expr, i))))
+
+        # combine results (union or intersection):
+        results += logic(*temp_res)
 
     results.sort()
     return results
@@ -80,7 +98,7 @@ def open_paper(fname, args):
 def main():
     "the main routine"
     args = parse_args()
-    results = find_paper(args.regex, args.raw)
+    results = find_paper(args.regex, args.logic, args.raw)
 
     if len(results) == 0:
         print('nothing found for {}. Exit.'.format(' ∨ '.join(args.regex)))
