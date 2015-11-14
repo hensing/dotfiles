@@ -1,0 +1,107 @@
+- hosts: all
+  user: root
+  vars:
+    apt_keys_desktop:
+      - {name: dropbox, id: "FC918B335044912E", keyserver: "hkp://keyserver.ubuntu.com:80"}
+      - {name: mendeley, id: "D800C7D66F036044", keyserver: "hkp://keyserver.ubuntu.com:80"}
+      - {name: owncloud, url: "http://download.opensuse.org/repositories/isv:ownCloud:desktop/Ubuntu_{{ ansible_distribution_version }}/Release.key"}
+      - {name: spotify, keyserver: "hkp://keyserver.ubuntu.com:80", id: "BBEBDCB318AD50EC6865090613B00F1FD2C19886"}
+
+    apt_repos_desktop:
+      - {name: dropbox, repo: "deb [arch=i386,amd64] http://linux.dropbox.com/ubuntu {{ ansible_distribution_release }} main"}
+      - {name: mendeley, repo: "deb http://desktop-download.mendeley.com/download/apt stable main"}
+      - {name: neovim, repo: "ppa:neovim-ppa/unstable"}
+      - {name: owncloud, repo: "deb http://download.opensuse.org/repositories/isv:/ownCloud:/desktop/Ubuntu_{{ ansible_distribution_version }}/ /"}
+      - {name: spotify, repo: "deb http://repository.spotify.com stable non-free"}
+      - {name: partner, repo: "deb http://archive.canonical.com/ubuntu {{ansible_distribution_release}} partner"}
+      - {name: partner-src, repo: "deb-src http://archive.canonical.com/ubuntu {{ansible_distribution_release}} partner"}
+
+      - {name: extras, repo: "deb http://extras.ubuntu.com/ubuntu {{ansible_distribution_release}} main"}
+      - {name: extras-src, repo: "deb-src http://extras.ubuntu.com/ubuntu {{ansible_distribution_release}} main"}
+
+    packages_base:
+      - {name: ack-grep}
+      - {name: ansible, state: latest, default_release: "{{ ansible_distribution_release }}-backports"}
+      - {name: ansible}
+      - {name: aptitude}
+      - {name: aspell-de}
+      - {name: git}
+      - {name: git-svn}
+      - {name: parallel}
+      - {name: rsync}
+      - {name: subversion}
+      - {name: smartmontools}
+      - {name: tig}
+      - {name: tmux}
+      - {name: tree}
+      - {name: vim, state: latest}
+      - {name: zsh-static, state: latest, default_release: "{{ ansible_distribution_release }}-backports"}
+
+    packages_desktop:
+      - {name: cifs-utils}
+      - {name: jabref}
+      - {name: latex-mk}
+      - {name: libreoffice}
+      - {name: nfs-common}
+      - {name: texlive-full}
+      - {name: neovim, state: latest}
+      - {name: mendeleydesktop}
+      - {name: spotify-client}
+      - {name: dropbox}
+      - {name: owncloud-client}
+
+    packages_programming:
+      - {name: build-essential}
+      - {name: gsl-bin}
+      - {name: ipython, state: latest}
+      - {name: ipython-notebook, state: latest}
+      - {name: pep8}
+      - {name: pylint, state: latest}
+      - {name: python-dev, state: latest}
+      - {name: python-ipdb, state: latest}
+      - {name: python-matplotlib, state: latest}
+      - {name: python-numpy, state: latest}
+      - {name: python-pandas, state: latest}
+      - {name: python-pip, state: latest}
+      - {name: python-progressbar}
+      - {name: python-qt4}
+      - {name: python-scipy, state: latest}
+      - {name: virtualenvwrapper}
+
+  tasks:
+    - name: add desktop repositories keys
+      apt_key: >
+           keyserver="{{item.keyserver|default(none)}}"
+           id="{{item.id|default(none)}}"
+           url="{{item.url|default(none)}}"
+      with_items: apt_keys_desktop
+      when: inventory_hostname in groups['workstations']
+
+    - name: add desktop repositories
+      apt_repository: >
+           repo="{{item.repo}}"
+           state="{{item.state|default('present')}}"
+      with_items: apt_repos_desktop
+      when: inventory_hostname in groups['workstations']
+
+    - name: apt-get update and upgrade
+      apt: update_cache=yes
+           upgrade=yes
+           cache_valid_time=300
+
+    - name: install base packages
+      apt: name="{{item.name}}"
+           state="{{item.state|default('present')}}"
+           default_release="{{item.default_release|default(none)}}"
+      with_items: packages_base
+
+    - name: install workstation packages
+      apt: name="{{item.name}}"
+           state="{{item.state|default('present')}}"
+           default_release="{{item.default_release|default(none)}}"
+      with_items: "{{ packages_desktop + packages_programming }}"
+      when: inventory_hostname in groups['workstations']
+
+  handlers:
+    - name: update cache
+      apt: update_cache=yes
