@@ -11,6 +11,7 @@
     apt_repos_desktop:
       - {name: dropbox, repo: "deb [arch=i386,amd64] http://linux.dropbox.com/ubuntu {{ ansible_distribution_release }} main"}
       - {name: i3wm, repo: "deb http://debian.sur5r.net/i3/ {{ ansible_distribution_release }} universe"}
+      - {name: keepass, repo: "ppa:jtaylor/keepass"}
       - {name: mendeley, repo: "deb http://desktop-download.mendeley.com/download/apt stable main"}
       - {name: neovim, repo: "ppa:neovim-ppa/unstable"}
       - {name: owncloud, repo: "deb http://download.opensuse.org/repositories/isv:/ownCloud:/desktop/Ubuntu_{{ ansible_distribution_version }}/ /"}
@@ -23,10 +24,15 @@
       - {name: ack-grep}
       - {name: ansible, state: latest, default_release: "{{ ansible_distribution_release }}-backports"}
       - {name: ansible}
+      - {name: apt-file}
       - {name: aptitude}
       - {name: aspell-de}
+      - {name: fsarchiver}
       - {name: git-svn}
+      - {name: gitstats}
       - {name: git}
+      - {name: iotop}
+      - {name: iperf}
       - {name: openvpn}
       - {name: parallel}
       - {name: rsync}
@@ -35,33 +41,66 @@
       - {name: tig}
       - {name: tmux}
       - {name: tree}
+      - {name: unrar}
       - {name: vim, state: latest}
+      - {name: whois}
       - {name: zsh, state: latest, default_release: "{{ ansible_distribution_release }}-backports"}
 
     packages_desktop:
       - {name: cifs-utils}
       - {name: dropbox}
+      - {name: feh}
+      - {name: gnome-applets}
+      - {name: gnupg-agent}
+      - {name: gparted}
       - {name: i3}
+      - {name: indicator-sound-gtk2}
       - {name: jabref}
+      - {name: keychain}
+      - {name: keepass2}
       - {name: latex-mk}
       - {name: libreoffice}
       - {name: mendeleydesktop}
       - {name: neovim, state: latest}
       - {name: nfs-common}
+      - {name: okular}
       - {name: owncloud-client}
       - {name: pidgin-otr}
       - {name: pidgin}
+      - {name: skype}
       - {name: spotify-client}
+      - {name: sshfs}
       - {name: texlive-full}
+      - {name: unetbootin}
+      - {name: virtualbox-guest-additions-iso}
+      - {name: virtualbox}
+      - {name: xautolock}
+      - {name: yubikey-personalization-gui}
 
     packages_programming:
+      - {name: asciidoc}
+      - {name: autoconf}
       - {name: build-essential}
+      - {name: clang}
+      - {name: cmake}
+      - {name: cython}
       - {name: gsl-bin}
       - {name: ipython, state: latest}
       - {name: ipython-notebook, state: latest}
+      - {name: libboost-iostreams-dev}
+      - {name: libboost-python-dev}
+      - {name: libconfuse-dev}
+      - {name: libgsl0-dev}
+      - {name: libiw-dev}
+      - {name: libncurses5-dev}
+      - {name: libnss-myhostname}
+      - {name: libxml2-dev}
+      - {name: libyajl-dev}
+      - {name: pandoc}
       - {name: pep8, state: latest}
       - {name: pylint, state: latest}
       - {name: python-dev, state: latest}
+      - {name: python-h5py, state: latest}
       - {name: python-ipdb, state: latest}
       - {name: python-matplotlib, state: latest}
       - {name: python-numpy, state: latest}
@@ -70,7 +109,9 @@
       - {name: python-progressbar}
       - {name: python-qt4}
       - {name: python-scipy, state: latest}
+      - {name: python-tables, state: latest}
       - {name: virtualenvwrapper, state: latest}
+      - {name: zlib1g-dev}
 
   tasks:
     - name: add desktop repositories keys
@@ -97,12 +138,14 @@
       apt: name="{{item.name}}"
            state="{{item.state|default('present')}}"
            default_release="{{item.default_release|default(none)}}"
+           install_recommends=yes
       with_items: packages_base
 
     - name: install workstation packages
       apt: name="{{item.name}}"
            state="{{item.state|default('present')}}"
            default_release="{{item.default_release|default(none)}}"
+           install_recommends=yes
       with_items: "{{ packages_desktop + packages_programming }}"
       when: inventory_hostname in groups['workstations']
 
