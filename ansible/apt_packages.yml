@@ -3,18 +3,20 @@
   vars:
     apt_keys_desktop:
       - {name: dropbox, id: "FC918B335044912E"}
+      - {name: i3wm, id: "941C42E6"}
       - {name: mendeley, id: "D800C7D66F036044"}
       - {name: owncloud, id: "BA684223"}
       - {name: spotify, id: "D2C19886"}
 
     apt_repos_desktop:
       - {name: dropbox, repo: "deb [arch=i386,amd64] http://linux.dropbox.com/ubuntu {{ ansible_distribution_release }} main"}
+      - {name: i3wm, repo: "deb http://debian.sur5r.net/i3/ {{ ansible_distribution_release }} universe"}
       - {name: mendeley, repo: "deb http://desktop-download.mendeley.com/download/apt stable main"}
       - {name: neovim, repo: "ppa:neovim-ppa/unstable"}
       - {name: owncloud, repo: "deb http://download.opensuse.org/repositories/isv:/ownCloud:/desktop/Ubuntu_{{ ansible_distribution_version }}/ /"}
-      - {name: spotify, repo: "deb http://repository.spotify.com testing non-free"}
       - {name: partner, repo: "deb http://archive.canonical.com/ubuntu {{ansible_distribution_release}} partner"}
       - {name: partner-src, repo: "deb-src http://archive.canonical.com/ubuntu {{ansible_distribution_release}} partner"}
+      - {name: spotify, repo: "deb http://repository.spotify.com testing non-free"}
 
 
     packages_base:
@@ -39,6 +41,7 @@
     packages_desktop:
       - {name: cifs-utils}
       - {name: dropbox}
+      - {name: i3}
       - {name: jabref}
       - {name: latex-mk}
       - {name: libreoffice}
