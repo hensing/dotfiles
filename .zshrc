@@ -91,7 +91,7 @@ else
 fi
 alias ll="la | $PAGER"
 
-alias lsnew='/bin/ls -ahlt | head'
+alias lsnew='/bin/ls -ahlt *(mw-1) | head'
 alias lsold='/bin/ls -ahlt | tail'
 
 alias ..='cd ..'
@@ -123,7 +123,7 @@ if (( $+commands[condor_status] )) ; then
     alias cq='condor_q -dag -wide'
     alias cj='condor_q -long -attributes RemoteHost,Arguments,NumJobStarts,ImageSize,LastJobStatus,JobStatus'
     alias cver='condor_status -master -autoformat:t Name CondorVersion'
-    alias crm='rm **/*.(err|out|log|pyc|dag.*)'
+    alias crm='rm **/*.(err|out|log|pyc)'
 fi
 
 
