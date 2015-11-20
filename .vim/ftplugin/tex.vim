@@ -32,7 +32,7 @@ set linebreak
 "set virtualedit=
 set display+=lastline
 
-"" navigieren wie angezeigt:
+" navigieren wie angezeigt:
 noremap  <buffer> <silent> <Up>   gk
 noremap  <buffer> <silent> <Down> gj
 noremap  <buffer> <silent> <Home> g<Home>
@@ -51,3 +51,6 @@ vmap <buffer> <S-F7> <Plug>LatexEnvWrapSelection
 imap <buffer> ((     \eqref{
 " don't jump to quickfix when error occurs
 let g:LatexBox_quickfix = 2
+
+" compile async an background
+let g:LatexBox_latexmk_async = 1

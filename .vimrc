@@ -14,9 +14,10 @@ Plugin 'gmarik/vundle'
 " Plugins
 Plugin 'Lokaltog/vim-powerline'             " powerline
 "Plugin 'bling/vim-airline'                  " powerline
-Plugin 'syntastic'                          " syntax checker
+"Plugin 'syntastic'                          " syntax checker
+Plugin 'benekastah/neomake'                          " syntax checker
 Plugin 'ervandew/supertab'                  " smart tab key
-Plugin 'Valloric/YouCompleteMe'             " code completion (incl. jedi python completion)
+"Plugin 'Valloric/YouCompleteMe'             " code completion (incl. jedi python completion)
 Plugin 'davidhalter/jedi-vim'               " python completion
 Plugin 'hynek/vim-python-pep8-indent'       " python pep8
 Plugin 'LaTeX-Box-Team/LaTeX-Box'           " Lightweight Toolbox for LaTeX
@@ -93,6 +94,10 @@ set cursorline
 " powerline:
 let g:Powerline_symbols = 'fancy'
 
+" airline config
+"let g:airline_powerline_fonts = 1
+"let g:airline#extensions#tabline#enabled = 1
+
 " modeline
 "set modeline
 
@@ -112,7 +117,7 @@ set backspace=2
 
 " auto folds schreiben und laden
 autocmd BufWrite *.* mkview
-autocmd BufRead *.* silent loadview
+autocmd BufRead *.* silent! loadview
 
 " falten an markern als default
 set foldmethod=marker
@@ -214,7 +219,8 @@ map <F10> <C-T>
 " Vorlagen für neue Dateien verwenden:
 au BufNewFile *.py 0r ~/.vim/skeleton/skeleton.py | normal | Gdd
 
-" YouCompleteMe
+" run neomake syntax check when writing file
+autocmd! BufWritePost * Neomake
 
 " tab via supertab
 let g:SuperTabDefaultCompletionType = '<C-n>'
