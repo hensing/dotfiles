@@ -190,6 +190,11 @@ if (( $+commands[tmux] )) ; then
   compdef __tmux-sessions tm
 fi
 
+# ssh/gpg agent via gentoo keychain:
+if (( $+commands[keychain] )) ; then
+    eval `keychain --eval --agents gpg,ssh --timeout 10 -q`
+fi
+
 
 # prompt {{{
 
