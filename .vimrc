@@ -1,23 +1,22 @@
 " be iMproved, required by vundle
 set nocompatible
 
+
 " set the runtime path to include Vundle and initialize
-set rtp+=~/.vim/bundle/vundle/
-call vundle#rc()
-" alternatively, pass a path where Vundle should install plugins
-"let path = '~/some/path/here'
-"call vundle#rc(path)
+filetype off
+set rtp+=~/.vim/bundle/Vundle.vim
+call vundle#begin()
 
 " let Vundle manage Vundle, required
-Plugin 'gmarik/vundle'
+Plugin 'VundleVim/Vundle.vim'
 
-" Plugins
-Plugin 'Lokaltog/vim-powerline'             " powerline
-"Plugin 'bling/vim-airline'                  " powerline
+" other plugins
+"Plugin 'Lokaltog/vim-powerline'             " powerline
+Plugin 'bling/vim-airline'                  " powerline
 "Plugin 'syntastic'                          " syntax checker
 Plugin 'benekastah/neomake'                          " syntax checker
 Plugin 'ervandew/supertab'                  " smart tab key
-"Plugin 'Valloric/YouCompleteMe'             " code completion (incl. jedi python completion)
+Plugin 'Valloric/YouCompleteMe'             " code completion (incl. jedi python completion)
 Plugin 'davidhalter/jedi-vim'               " python completion
 Plugin 'hynek/vim-python-pep8-indent'       " python pep8
 Plugin 'LaTeX-Box-Team/LaTeX-Box'           " Lightweight Toolbox for LaTeX
@@ -33,6 +32,8 @@ Plugin 'SirVer/ultisnips'                   " sniplets engine
 Plugin 'honza/vim-snippets'                 " sniplets
 "Plugin 'terryma/vim-multiple-cursors'       " multiple cursors :)
 Plugin 'ivanov/vim-ipython'                 " communication with ipython kernels
+
+call vundle#end()
 
 set nu              " Zeilen nummerieren
 set autoindent      " Auto Einrückung
@@ -92,11 +93,11 @@ set list
 set cursorline
 
 " powerline:
-let g:Powerline_symbols = 'fancy'
+"let g:Powerline_symbols = 'fancy'
 
 " airline config
-"let g:airline_powerline_fonts = 1
-"let g:airline#extensions#tabline#enabled = 1
+let g:airline_powerline_fonts = 1
+let g:airline#extensions#tabline#enabled = 1
 
 " modeline
 "set modeline
