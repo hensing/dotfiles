@@ -3,3 +3,5 @@
 	name = Henning dickten
 [push]
 	default = simple
+[alias]
+	undo-commit = reset --soft HEAD^
