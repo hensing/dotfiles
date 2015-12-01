@@ -5,9 +5,10 @@ HEADLESS=.dircolors\
 
 all:
 	git submodule update --init --recursive
-	sh deploy.sh
+	./deploy.sh
+	./fonts/install.sh
 
 tiny:
 	git submodule init $(HEADLESS)
 	git submodule update $(HEADLESS)
-	sh deploy.sh
+	./deploy.sh
