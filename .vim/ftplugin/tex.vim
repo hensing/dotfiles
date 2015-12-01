@@ -7,6 +7,11 @@ set expandtab       " Tabs are 4 Spaces and Spaces are Spaces!
 
 setlocal number
 
+" file encoding
+set fileencoding=utf8
+set bomb  " write byte order mark
+
+
 " Formatoptionen setzen:
 " a: automatic formatting of paragraphs when insering or deleting (nervt!!!)
 " c: automatic formatting for comments

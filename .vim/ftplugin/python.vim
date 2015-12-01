@@ -17,6 +17,10 @@ else
     au BufWinEnter * let w:m2=matchadd('ErrorMsg', '\%>80v.\+', -1)
 endif
 
+" file encoding
+set fileencoding=utf8
+set nobomb  " don't write byte order mark
+
 " Formatoptionen setzen:
 " a: automatic formatting of paragraphs when insering or deleting (nervt!!!)
 " c: automatic formatting for comments
