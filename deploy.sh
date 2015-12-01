@@ -3,7 +3,7 @@
 # deploying the dotfiles
 cd ~/.dotfiles
 
-for file in `find . -name .git -prune -o -name deploy.sh -o -name ansible -prune -o -type f -print`;
+for file in `find . -name .git -prune -o -name deploy.sh -o -name fonts -prune -o -name ansible -prune -o -type f -print`;
 do
     file=${file#./}
 
