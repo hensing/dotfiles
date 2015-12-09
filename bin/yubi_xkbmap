@@ -1,0 +1,14 @@
+#!/bin/bash
+sleep 1
+DISPLAY=":0.0"
+HOME=/home/hensing
+XAUTHORITY=$HOME/.Xauthority
+
+export DISPLAY XAUTHORITY HOME
+
+yubikey_id=`xinput -list | grep -i 'yubikey' |grep -o "id=[0-9]." |grep -o "[0-9]." |head -1`
+
+if [ ! -z "${yubikey_id}" ]; then
+    echo "setting xkbmap for yubico with id $yubikey_id to us layout"
+    /usr/bin/setxkbmap -device "${yubikey_id}" us
+fi
