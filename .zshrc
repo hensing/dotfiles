@@ -355,10 +355,14 @@ zle -N run-with-sudo
 
   # tex-müll entfernen
   rmtex() {
-    rm **/*.(nav|snm|log|aux|out|toc|bbl|blg|dvi|synctex.gz|pdfsync|alg|acr|acn|glg|gls|glo|slg|syi|syg|ist|nlo|*~|fdb_latexmk|fls)
+      rm **/*.(nav|snm|log|aux|out|toc|bbl|blg|dvi|synctex.gz|pdfsync|alg|acr|acn|glg|gls|glo|slg|syi|syg|ist|nlo|*~|fdb_latexmk|fls|run.xml) **/*-blx.bib
   }
 
-  
+  # hosts in /etc/hosts suchen
+  h() {
+      grep $@ /etc/hosts
+  }
+
   # prozess suchen
   psgrep() {
     if [ ! -z $1 ] ; then
@@ -380,11 +384,6 @@ zle -N run-with-sudo
   # mkdir und cd
   mcd () {
     mkdir "$@" && cd "$@"
-  }
-
-  # Schneller Start, Restart, Stop, Reload von init.d Modulen
-  Start Restart Stop Reload() {
-      sudo /etc/init.d/$1 ${0:l}
   }
 
   # Funktion, die bei jedem Verzeichniswechsel aufgerufen wird:
