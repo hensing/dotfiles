@@ -1,0 +1,49 @@
+- hosts: server
+  user: root
+  vars:
+      zfsroot: { cassius: zroot, bamster.de: storage }
+
+  tasks:
+    - name: install ezjail
+      pkgng: name=ezjail state=present
+
+    - name: set ipv4 forwarding
+      sysctl: >
+           name="net.inet.ip.forwarding"
+           value=1
+           sysctl_set=yes
+           state=present
+           reload=yes
+
+    - name: set ipv6 forwarding
+      sysctl: >
+           name="net.inet6.ip6.forwarding"
+           value=1
+           sysctl_set=yes
+           state=present
+           reload=yes
+
+    - name: clone interface and enable routing
+      lineinfile: >
+          dest=/etc/rc.conf
+          line={{ item.line }}
+      with_items:
+          - {line: 'cloned_interfaces=\"lo1\"'}
+          - {line: 'gateway_enable=\"YES\"'}
+          - {line: 'ipv6_gateway_enable=\"YES\"'}
+
+    - name: enable ezjail
+      service: name=ezjail enabled=yes
+
+    - name: configure ezjail.conf
+      template: src=templates/ezjail.conf.j2 dest=/usr/local/etc/ezjail.conf
+
+    - name: Test if basejail exist
+      shell: /bin/test -d /usr/jails/basejail/
+      register: basejail
+      ignore_errors: True
+      changed_when: "basejail.rc != 0"
+
+    - name: Ensure ezjail basejail is installed
+      command: /usr/local/bin/ezjail-admin install
+      when: "basejail.rc != 0"
