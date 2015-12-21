@@ -1,0 +1,12 @@
+#!/bin/zsh
+
+TARGET=/mnt/virtualenvs/conda_hd/
+SYNOLOGY=/volume1/powertower_daten/virtualenvs/conda_hd/
+SRC=/home/hensing/miniconda2/envs/conda_hd/
+
+echo "syncing env ..."
+rsync -rltpD --safe-links $SRC root@synology:$SYNOLOGY
+#ssh root@synology "chown root:root $SYNOLOGY"
+
+echo "patching paths ..."
+ssh root@synology "sed -i 's#$SRC#$TARGET#g' $SYNOLOGY/bin/*"
