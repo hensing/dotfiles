@@ -3,7 +3,7 @@
 # deploying the dotfiles
 cd ~/.dotfiles
 
-for file in `git ls-files|grep -v -E "(.gitmodules|.gitignore|deploy.sh|README|LICENSE|ansible|Makefile)"`
+for file in `git ls-files|grep -v -E "(.gitmodules|.gitignore|deploy.sh|README|LICENSE|ansible|conda|Makefile)"`
 do
     file=${file#./}
 
