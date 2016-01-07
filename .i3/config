@@ -265,9 +265,11 @@ exec /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1
 #exec_always --no-startup-id feh --bg-scale ~/Pictures/current
 
 ## Lock screen, start time for automatic screen lock
-bindsym $mod+Ctrl+L exec i3lock -i ~/Pictures/lockscreen.png
+bindsym $mod+Ctrl+L exec gnome-screensaver-command -l
+#bindsym $mod+Ctrl+L exec i3lock -i ~/Pictures/lockscreen.png
 #exec_always xautolock -time 10 -locker 'i3lock -i ~/Pictures/lockscreen.png'
 
 # Startup programs
 exec dropbox start
 exec owncloud
+exec redshift -l 50.4:7.6 -t 6200:5300
