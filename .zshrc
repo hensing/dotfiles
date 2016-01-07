@@ -143,6 +143,11 @@ if (( $+commands[git] )) ; then
     alias gs='git status -sb' # upgrade your git if -sb breaks for you. it's fun.
 fi
 
+# latexdiff
+ldiff() {
+    latexdiff-git $1 -r `git log --abbrev-commit |head -n 1 |cut -d ' ' -f 2`
+}
+
 # eigene IP im WAN, falls hinter router
 alias myip='curl checkip.dyndns.org -s | sed "s/[^0-9]*//" | fgrep . | cut -d "<" -f 1'
 
