@@ -9,7 +9,7 @@ setlocal number
 
 " file encoding
 set fileencoding=utf8
-set bomb  " write byte order mark
+set nobomb  " write byte order mark
 
 
 " Formatoptionen setzen:
