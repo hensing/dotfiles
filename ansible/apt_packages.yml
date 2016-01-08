@@ -50,11 +50,11 @@
       - {name: cifs-utils}
       - {name: dropbox}
       - {name: feh}
-      - {name: gnome-applets}
       - {name: gnupg-agent}
       - {name: gparted}
       - {name: i3}
-      - {name: indicator-sound-gtk2}
+      - {name: dunst, state: absent}
+      - {name: indicator-sound-gtk2, state: absent}
       - {name: jabref}
       - {name: keychain}
       - {name: keepass2}
@@ -84,16 +84,22 @@
       - {name: clang}
       - {name: cmake}
       - {name: cython}
+      - {name: fortran-compiler}
       - {name: gsl-bin}
       - {name: ipython, state: latest}
       - {name: ipython-notebook, state: latest}
+      - {name: libblas-dev}
       - {name: libboost-iostreams-dev}
       - {name: libboost-python-dev}
       - {name: libconfuse-dev}
+      - {name: libfreetype6-dev}
       - {name: libgsl0-dev}
+      - {name: libhdf5-dev}
       - {name: libiw-dev}
+      - {name: liblapack-dev}
       - {name: libncurses5-dev}
       - {name: libnss-myhostname}
+      - {name: libpng12-dev}
       - {name: libxml2-dev}
       - {name: libyajl-dev}
       - {name: pandoc}
