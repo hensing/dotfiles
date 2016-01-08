@@ -256,18 +256,19 @@ bar {
 }
 
 # autostart:
-exec gnome-settings-daemon
+exec unity-settings-daemon
+exec gnome-screensaver
 exec nm-applet
 exec gnome-sound-applet
 exec /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1
 
 ## set desktop wallpaper using feh
-#exec_always --no-startup-id feh --bg-scale ~/Pictures/current
+exec_always --no-startup-id feh --bg-scale ~/Pictures/current
 
 ## Lock screen, start time for automatic screen lock
-bindsym $mod+Ctrl+L exec gnome-screensaver-command -l
 #bindsym $mod+Ctrl+L exec i3lock -i ~/Pictures/lockscreen.png
 #exec_always xautolock -time 10 -locker 'i3lock -i ~/Pictures/lockscreen.png'
+bind $mod+Ctrl+46 exec gnome-screensaver-command -l
 
 # Startup programs
 exec dropbox start
