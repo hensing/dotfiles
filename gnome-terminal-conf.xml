@@ -301,7 +301,7 @@
       <key>profiles/Default/background_darkness</key>
       <schema_key>/schemas/apps/gnome-terminal/profiles/Default/background_darkness</schema_key>
       <value>
-        <float>0.90772497653961182</float>
+        <float>0.98</float>
       </value>
     </entry>
     <entry>
@@ -570,7 +570,7 @@
     <entry>
       <key>profiles/Profile0/background_darkness</key>
       <value>
-        <float>0.90772497653961182</float>
+        <float>0.98</float>
       </value>
     </entry>
     <entry>
@@ -792,7 +792,7 @@
     <entry>
       <key>profiles/Profile1/background_darkness</key>
       <value>
-        <float>0.90772497653961182</float>
+        <float>0.98</float>
       </value>
     </entry>
     <entry>
@@ -1014,7 +1014,7 @@
     <entry>
       <key>profiles/Profile2/background_darkness</key>
       <value>
-        <float>0.90772497653961182</float>
+        <float>0.98</float>
       </value>
     </entry>
     <entry>
