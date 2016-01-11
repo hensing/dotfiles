@@ -145,7 +145,7 @@ fi
 
 # latexdiff
 ldiff() {
-    latexdiff-git $1 -r `git log --abbrev-commit |head -n 1 |cut -d ' ' -f 2`
+    latexdiff-git --pdf $1 -r `git log --abbrev-commit |head -n 1 |cut -d ' ' -f 2`
 }
 
 # eigene IP im WAN, falls hinter router
