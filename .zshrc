@@ -359,8 +359,9 @@ zle -N run-with-sudo
   }
 
   # tex-müll entfernen
+  # (N): null glob
   rmtex() {
-      rm **/*.(nav|snm|log|aux|out|toc|bbl|blg|dvi|synctex.gz|pdfsync|alg|acr|acn|glg|gls|glo|slg|syi|syg|ist|nlo|*~|fdb_latexmk|fls|run.xml) **/*-blx.bib
+      rm **/*.(nav|snm|log|aux|out|toc|bbl|blg|dvi|synctex.gz|pdfsync|alg|acr|acn|glg|gls|glo|slg|syi|syg|ist|nlo|*~|fdb_latexmk|fls|run.xml) **/*-blx.bib(N)
   }
 
   # hosts in /etc/hosts suchen
