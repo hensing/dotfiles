@@ -256,7 +256,7 @@ bar {
 }
 
 # autostart:
-exec unity-settings-daemon
+exec gnome-settings-daemon
 exec gnome-screensaver
 exec nm-applet
 exec gnome-sound-applet
