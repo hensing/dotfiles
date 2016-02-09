@@ -14,7 +14,11 @@ do
     fi
 
     # add link:
-    ln -f -s ~/.dotfiles/$file ~/$file
+    if [ ! -d ~/$file ]; then
+        if [ ! -L ~/$file ]; then
+            ln -f -s ~/.dotfiles/$file ~/$file
+        fi
+    fi
 done
 
 make apply
