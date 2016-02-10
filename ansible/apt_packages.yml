@@ -54,7 +54,7 @@
       - {name: gparted}
       - {name: i3}
       - {name: dunst, state: absent}
-      - {name: indicator-sound-gtk2, state: absent}
+      - {name: indicator-sound-gtk2}
       - {name: jabref}
       - {name: keychain}
       - {name: keepass2}
