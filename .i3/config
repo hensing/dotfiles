@@ -259,7 +259,8 @@ bar {
 exec gnome-settings-daemon
 exec gnome-screensaver
 exec nm-applet
-exec gnome-sound-applet
+#exec gnome-sound-applet
+exec pasystray || gnome-sound-applet
 exec /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1
 
 ## set desktop wallpaper using feh
