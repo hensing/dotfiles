@@ -26,15 +26,22 @@ def main(fnames):
     into utf-8 NFC
     """
     if len(fnames) == 0:
-        for root, _, filenames in os.walk(os.path.curdir, followlinks=True):
+        for root, dirnames, filenames in os.walk(os.path.curdir,
+                                                 followlinks=False):
             fnames.extend((os.path.join(root, fname)
                            for fname in filenames))
+            fnames.extend(dirnames)
 
     for fname in fnames:
         new_fname = normalize(TARGET_NORMALIZATION, fname.decode('utf-8'))
 
         if new_fname == fname.decode('utf-8'):
             # no need for conversion
+            continue
+
+        if os.path.exists(new_fname) and os.path.isdir(new_fname):
+            logging.warn("Directory '%s' existing - skipping!",
+                         new_fname.encode('utf-8'))
             continue
 
         if os.path.exists(new_fname) and not filecmp.cmp(fname, new_fname):
