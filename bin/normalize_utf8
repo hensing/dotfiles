@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+"""
+normalizes utf-8 filenames and renames the given filenames or files
+in the current directory into utf-8 NFC
+"""
+import logging
+import sys
+import os.path
+import shutil
+import filecmp
+
+from unicodedata import normalize
+
+
+logging.basicConfig(level=logging.WARNING)
+
+
+TARGET_NORMALIZATION = 'NFC'
+
+
+def main(fnames):
+    """"
+    converts and renames the given filenames or files in the current directory
+    into utf-8 NFC
+    """
+    if len(fnames) == 0:
+        for root, _, filenames in os.walk(os.path.curdir, followlinks=True):
+            fnames.extend((os.path.join(root, fname)
+                           for fname in filenames))
+
+    for fname in fnames:
+        new_fname = normalize(TARGET_NORMALIZATION, fname.decode('utf-8'))
+
+        if new_fname == fname.decode('utf-8'):
+            # no need for conversion
+            continue
+
+        if os.path.exists(new_fname) and not filecmp.cmp(fname, new_fname):
+            logging.warn("File '%s' existing and differing!",
+                         new_fname.encode('utf-8'))
+
+        elif os.path.exists(new_fname) and filecmp.cmp(fname, new_fname):
+            logging.info("Removing duplicate '%s'.",
+                         new_fname.encode('utf-8'))
+            os.remove(fname)
+
+        else:
+            logging.info("Moving '%s'.", new_fname.encode('utf-8'))
+            shutil.move(fname, new_fname)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
