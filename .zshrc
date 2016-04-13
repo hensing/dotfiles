@@ -142,6 +142,12 @@ if (( $+commands[git] )) ; then
     alias gb='git branch'
     alias gs='git status -sb' # upgrade your git if -sb breaks for you. it's fun.
 fi
+# ipython notebook alias
+if (( $+commands[ipython] )) ; then
+    alias i='ipython'
+    alias in='ipython notebook'
+    alias inp='ipython notebook --ip=0.0.0.0'
+fi
 
 # latexdiff
 ldiff() {
