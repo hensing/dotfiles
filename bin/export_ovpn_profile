@@ -1,0 +1,115 @@
+#!/usr/bin/env python
+# coding: utf-8
+"""
+    exports a given OpenVPN config into one .ovpn profile
+"""
+__author__ = 'Henning Dickten'
+
+import argparse
+import sys
+from warnings import warn
+import os
+
+
+def parse_args(args=None):
+    "parses the CLI arguments"
+    if args is None:
+        args = sys.argv
+
+    parser = argparse.ArgumentParser(
+        description="Export OpenVPN-configs into .opvn file")
+
+    parser.add_argument('config',
+                        help='openvpn config file')
+
+    parser.add_argument('keyname', nargs='?',
+                        default=None,
+                        help='keyname (without .key or .crt) '
+                             'to use instead of cert/key in config.')
+
+    parser.add_argument('-k', '--keypath',
+                        default=os.path.curdir)
+
+    return parser.parse_args(args[1:])
+
+
+def main(args):
+    """
+    creates a .ovpn profile with given config (and keyname)
+
+    Argparse-Arguments:
+    ===================
+    config: string
+      filename of the openvpn client config
+
+    keyname: string
+      key basename (without .crt/.key) to use instead of key in config
+
+    keypath: str
+      path to keys
+    """
+    with open(args.config, 'r') as fobj:
+        config = fobj.readlines()
+
+    # get server CA:
+    ca_fname = [line for line in config if line.startswith('ca ')]
+    if len(ca_fname) == 1:
+        with open(ca_fname[0].split()[1], 'r') as fobj:
+            sca = fobj.readlines()
+    else:
+        with open(os.path.join(args.keypath, "ca.crt", 'r')) as fobj:
+            sca = fobj.readlines()
+
+    # get client cert / key:
+    if args.keyname is not None:
+        cert_fname = os.path.join(args.keypath, args.keyname + '.crt')
+        key_fname = os.path.join(args.keypath, args.keyname + '.key')
+    else:
+        try:
+            cert_fname = [line.split()[1] for line in config
+                          if line.startswith('cert ')][0]
+            key_fname = [line.split()[1] for line in config
+                         if line.startswith('key ')][0]
+        except IndexError:
+            warn("cert / key not found in config!")
+            sys.exit(os.errno.ENOENT)
+
+    with open(cert_fname, 'r') as fobj:
+        cert = fobj.readlines()
+    with open(key_fname, 'r') as fobj:
+        key = fobj.readlines()
+
+    # drop CA / cert / key in config
+    base = [line for line in config
+            if not (line.startswith('ca ') or
+                    line.startswith('key ') or
+                    line.startswith('cert '))]
+
+    base.append("<ca>\n")
+    base.extend(sca)
+    base.append("</ca>\n")
+    base.append("\n")
+
+    base.append("<cert>\n")
+    base.extend(cert)
+    base.append("</cert>\n")
+    base.append("\n")
+
+    base.append("<key>\n")
+    base.extend(key)
+    base.append("</key>\n")
+    base.append("\n")
+
+    # derive filename out
+    if args.keyname is None:
+        outname = os.path.splitext(os.path.split(args.config)[-1])[0] + '.ovpn'
+    else:
+        outname = args.keyname + '.ovpn'
+
+    # export
+    with open(outname, 'w') as fobj:
+        fobj.writelines(base)
+
+if __name__ == '__main__':
+    ARGS = parse_args()
+    main(ARGS)
