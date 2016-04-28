@@ -32,6 +32,7 @@ Plugin 'SirVer/ultisnips'                   " sniplets engine
 Plugin 'honza/vim-snippets'                 " sniplets
 "Plugin 'terryma/vim-multiple-cursors'       " multiple cursors :)
 Plugin 'ivanov/vim-ipython'                 " communication with ipython kernels
+Plugin 'rust-lang/rust.vim'                 " vim rust ftplugin
 
 call vundle#end()
 
