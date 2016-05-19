@@ -1,256 +1,105 @@
 " be iMproved, required by vundle
 set nocompatible
 
+" init vim-plug
+call plug#begin('~/.vim/plugged')
 
-" set the runtime path to include Vundle and initialize
-filetype off
-set rtp+=~/.vim/bundle/Vundle.vim
-call vundle#begin()
+Plug 'bling/vim-airline'		" powerline
+Plug 'thomwiggers/vim-colors-solarized'	" solarized colors
+Plug 'Valloric/YouCompleteMe'		" code completion (incl. jedi python completion)
+Plug 'benekastah/neomake'		" async. syntax checker
+Plug 'davidhalter/jedi-vim'		" python completion
+Plug 'hynek/vim-python-pep8-indent'	" python pep8
+Plug 'LaTeX-Box-Team/LaTeX-Box'		" Lightweight Toolbox for LaTeX
+Plug 'airblade/vim-gitgutter'		" git changes in gutter
+Plug 'tpope/vim-fugitive'		" git commit/diff/...
+Plug 'scrooloose/nerdcommenter'		" comments
+Plug 'kshenoy/vim-signature'		" display,toggle and iterate marks
+Plug 'kien/ctrlp.vim'			" ctrl p filebrowser
+Plug 'SirVer/ultisnips'			" sniplets engine
+Plug 'honza/vim-snippets'		" sniplets
+"Plug 'ivanov/vim-ipython'		" communication with ipython kernels
+Plug 'rust-lang/rust.vim'		" vim rust ftplugin
 
-" let Vundle manage Vundle, required
-Plugin 'VundleVim/Vundle.vim'
+call plug#end()
 
-" other plugins
-"Plugin 'Lokaltog/vim-powerline'             " powerline
-Plugin 'bling/vim-airline'                  " powerline
-"Plugin 'syntastic'                          " syntax checker
-Plugin 'benekastah/neomake'                          " syntax checker
-Plugin 'ervandew/supertab'                  " smart tab key
-Plugin 'Valloric/YouCompleteMe'             " code completion (incl. jedi python completion)
-Plugin 'davidhalter/jedi-vim'               " python completion
-Plugin 'hynek/vim-python-pep8-indent'       " python pep8
-Plugin 'LaTeX-Box-Team/LaTeX-Box'           " Lightweight Toolbox for LaTeX
-Plugin 'airblade/vim-gitgutter'             " git changes in gutter
-Plugin 'tpope/vim-fugitive'                 " git commit/diff/...
-Plugin 'scrooloose/nerdcommenter'           " comments
-Plugin 'thomwiggers/vim-colors-solarized'   " solarized colors
-Plugin 'kshenoy/vim-signature'              " display,toggle and iterate marks
-Plugin 'kien/ctrlp.vim'                     " ctrl p filebrowser
-Plugin 'tpope/vim-surround'                 " parentheses, brackets, ...
-"Plugin 'Raimondi/delimitMate'               " insert pairs of brackets automatically
-Plugin 'SirVer/ultisnips'                   " sniplets engine
-Plugin 'honza/vim-snippets'                 " sniplets
-"Plugin 'terryma/vim-multiple-cursors'       " multiple cursors :)
-Plugin 'ivanov/vim-ipython'                 " communication with ipython kernels
-Plugin 'rust-lang/rust.vim'                 " vim rust ftplugin
-
-call vundle#end()
-
-set nu              " Zeilen nummerieren
-set autoindent      " Auto Einrückung
-set smartindent     " Aktiviert inteliggente C-Syntax rkennung und Einrückung
-
-set enc=utf-8
-set nobackup          " Erstellt ein Backup (file~) von jeder Datei
-
-set matchpairs=(:),[:],{:},<:>  " Klammer-Paare kennzeichnen
-set showmatch       " zeigt kurz öffnende/schließende Klammer an
-
-" persistent undo in vim 7.3:
-if v:version >= 703
-    set undofile    " save undo files after close
-    set undodir=$HOME/.vim/undo
-    if !isdirectory($HOME.'/.vim/undo')
-        call mkdir($HOME.'/.vim/undo', "p")
-    endif
-endif
-
-" TABSTOPS
-set tabstop=4       " Anzahl der Zeichen, die ein Tab breit dargestellt wird
-set shiftwidth=4    " Autoeinrückung: 4 Leerzeichen einrücken zum Zeilenbeginn, sonst tab
-set softtabstop=4   " Anzahl der Leerzeichen, die einem Tab entsprechen
-"set cindent         " Setzt shiftwidth Leerzeichen am Zeilenanfang und tabstop / softtabstop sonst
-set expandtab       " Tabs are 4 Spaces and Spaces are Spaces!
-
-" mouse and gui
-" system clipboard verwenden
-if has('gui')
-    set clipboard=unnamed
-endif
-
-"" mouse: scrolling and selecting with mouse
-"set mouse=a
-"" menu on right-click im gvim
-"set mousemodel=popup
-""hide cursor when typing
-"set mousehide
-
-
-" Colors? Plugins? Sure ..
-syntax enable
-set background=dark
+" DISPLAY OPTIONS
 colorscheme solarized
-
-" Dateispezifische einstellungen laden?
-filetype on
-filetype plugin on
-filetype indent on
-
-" display control chars
-set list listchars=tab:»·,trail:·
+set background=dark
+set display+=lastline			" display last edited line
+set showmode				" display current mode
+set laststatus=2			" show last status
+set nu					" line numbers
+set matchpairs=(:),[:],{:},<:>		" set matching brackets, etc.
+set list listchars=tab:»·,trail:·	" display tabs and trailing spaces
 set list
-
-"highlight the cursor line
-set cursorline
-
-" powerline:
-"let g:Powerline_symbols = 'fancy'
-
-" airline config
-let g:airline_powerline_fonts = 1
-let g:airline#extensions#tabline#enabled = 1
-
-" modeline
-"set modeline
-
-" keep selection when re-indenting
-vnoremap < <gv
-vnoremap > >gv
-
-" toggle paste mode
-set pastetoggle=<F12>
-
-" 2 is much smarter
-set backspace=2
-
-" Willkommensnachricht
-"autocmd VimEnter * echo "Welcome back Hensing :)"
-"autocmd VimLeave * echo "Cya in Hell."
-
-" auto folds schreiben und laden
-autocmd BufWrite *.* mkview
-autocmd BufRead *.* silent! loadview
-
-" falten an markern als default
-set foldmethod=marker
 
 " be quiet
 set noerrorbells
 set novisualbell
 
-" the mindestheight for ':help'
-set helpheight=20
+" always report on changes
+set report=0
 
-" dont close changed window
-set hidden
+" redefine vim settings
+if !has('nvim')
+	set syntax			" highlight syntax
+	set nobackup			" dont create ~-files
+	set showmatch			" show matching brackets etc.
+endif
+
+" SEARCH OPTIONS
+set ignorecase				" ignore case-sensitivity
+set smartcase				" same except for patterns containing upper case
+set hlsearch				" highlight search
 
 " make the history longer
 set history=500
 
-" Stop the highlighting for the 'hlsearch' option.
-set hlsearch
+" use own skeletons for new files
+au BufNewFile *.py 0r ~/.vim/skeleton/skeleton.py | normal | Gdd
 
-" ignore case-sensitivity in search patterns
-" manual exception: \Cmypattern
-set ignorecase
-" ignore case-sensitivity except for patterns containing upper case
-set smartcase
+" FOLDS
+set foldmethod=marker
+" load and write folds automatical
+autocmd BufWrite *.* mkview
+autocmd BufRead *.* silent! loadview
 
-" show statusline
-set laststatus=2
-
-" Set 'magic' patterns ;)
-" Examples:
-"  \v       \m       \M       \V         matches ~
-"  $        $        $        \$         matches end-of-line
-"  .        .        \.       \.         matches any character
-"  *        *        \*       \*         any number of the previous atom
-"  ()       \(\)     \(\)     \(\)       grouping into an atom
-"  |        \|       \|       \|         separating alternatives
-"  \a       \a       \a       \a         alphabetic character
-"  \\       \\       \\       \\         literal backslash
-"  \.       \.       .        .          literal dot
-"  \{       {        {        {          literal '{'
-"  a        a        a        a          literal 'a'
-set magic
-
-" always report changes
-set report=0
-
-" Execute ':!<command>' with Zsh. I use Zsh, Ksh and Sh. In this
-" order! No Bash, no Tcsh and no other toys.
-" -l is equivalent to --login (See zsh --help for details)
-set shell=zsh\ -l
-
-" display current mode
-set showmode
-
-" :help tags Read it + understand it = add it!
-set tags=./tags,tags
-
-" break the line
-" type to start wildcard expansion in the command-line
-set wildchar=<TAB>
-
-" When 'wildmenu' is on, command-line completion operates in an
-" enhanced mode.
-set wildmenu
-set wildmode=longest,list
-
-" omnicompletion keybinding
-"inoremap <C-Space> <C-x><C-o>
-"inoremap <C-@> <C-Space>
-"if !has("gui_running")
-"    inoremap <C-@> <C-x><C-o>
-"endif
-
-" terminal stuff
-if &term=="rxvt"
-	set term=xterm
-endif
-if &term=="xterm" || &term=="rxvt"
-	set t_Co=8
-	set t_Sf=[3%dm
-	set t_Sb=[4%dm
-	if !has("xterm_save")
-		set t_ti=[?47h
-		set t_te=[?47l
-	endif
-endif
-
-
-" list files in current directory.
-map ,ls :!ls <CR>
+" WRITING
+set autowrite				" write all files when calling :make
+set hidden				" dont close changed window
 " write as sudo
 cmap w!! %!sudo tee > /dev/null %
 
-" Hilfe Texte navigieren:
-map <F11> <C-]>
-map <F10> <C-T>
+" COMPLETION
+set wildchar=<TAB>			" type to start wildcard expansion in the command-line
+set wildmenu				" nicer autocompletion
+set wildmode=full			" alternative: longest,list
 
-" Vorlagen für neue Dateien verwenden:
-au BufNewFile *.py 0r ~/.vim/skeleton/skeleton.py | normal | Gdd
+" keep selection when re-indenting
+vnoremap < <gv
+vnoremap > >gv
 
-" run neomake syntax check when writing file
-autocmd! BufWritePost * Neomake
-
-" tab via supertab
-let g:SuperTabDefaultCompletionType = '<C-n>'
-
-" ycm via Ctrl-n == tab via supertab
-let g:ycm_key_list_select_completion = ['<C-n>', '<Down>']
-let g:ycm_key_list_previous_completion = ['<C-p>', '<UP>']
-let g:ycm_global_ycm_extra_conf = "~/.vim/.ycm_extra_conf.py"
-
-" disable jedi completion and popups:
-let g:jedi#completions_command = ""
-let g:jedi#popup_on_dot = 0
-let g:jedi#popup_select_first = 0
-let g:jedi#use_tabs_not_buffers = 0
-
-" jedi goto, docu etc...
-let g:jedi#goto_assignments_command = "<leader>ja"
-let g:jedi#goto_definitions_command = "<leader>jd"
-let g:jedi#documentation_command = "<leader>jh"
-let g:jedi#rename_command = "<leader>jr"
-let g:jedi#usages_command = "<leader>js"    " show similar commands
+" airline config
+let g:airline_powerline_fonts = 1
+let g:airline#extensions#tabline#enabled = 1
 
 " ultisnips
+let g:UltiShipsSnippetsDir="~/.config/nvim/plugged/vim-snippets/snippets"
 let g:UltiSnipsExpandTrigger="<tab>"
 let g:UltiSnipsJumpForwardTrigger="<tab>"
 let g:UltiSnipsJumpBackwardTrigger="<s-tab>"
 
-" ftdetect for ultisnip
-autocmd FileType * call UltiSnips#FileTypeChanged()
-autocmd BufNewFile,BufRead *.snippets setf snippets
+" run Neomake when writing a file if it is installed
+" as plugins are only loaded after the vimrc is processed,
+" if_exists(':Neomake') will always be false if called from within
+" the vimrc
+function Run_neomake()
+	if exists(':Neomake')
+		Neomake
+	endif
+endfunction
+autocmd! BufWritePost * call Run_neomake()
 
+" YouCompleteMe
+nnoremap <leader>jd :YcmCompleter GoTo<CR>
