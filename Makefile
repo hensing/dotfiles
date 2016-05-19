@@ -18,3 +18,7 @@ dump:
 
 apply:
 	gconftool-2 --load gnome-terminal-conf.xml || true
+
+clean:
+	echo "removing dead links"
+	find -L ~/ -name . -o -type d -prune -o -type l -exec rm {} +
