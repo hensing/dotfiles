@@ -6,7 +6,10 @@ call plug#begin('~/.vim/plugged')
 
 Plug 'bling/vim-airline'		" powerline
 Plug 'thomwiggers/vim-colors-solarized'	" solarized colors
-Plug 'Valloric/YouCompleteMe'		" code completion (incl. jedi python completion)
+function! DoRemote(arg)
+  UpdateRemotePlugins
+endfunction
+Plug 'Shougo/deoplete.nvim', { 'do': function('DoRemote') }
 Plug 'benekastah/neomake'		" async. syntax checker
 Plug 'davidhalter/jedi-vim'		" python completion
 Plug 'hynek/vim-python-pep8-indent'	" python pep8
@@ -75,7 +78,6 @@ cmap w!! %!sudo tee > /dev/null %
 set wildchar=<TAB>			" type to start wildcard expansion in the command-line
 set wildmenu				" nicer autocompletion
 set wildmode=full			" alternative: longest,list
-
 " keep selection when re-indenting
 vnoremap < <gv
 vnoremap > >gv
