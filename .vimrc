@@ -66,7 +66,7 @@ set history=1000
 set undofile
 set undodir=$HOME/.vim/undo
 if !isdirectory($HOME.'/.vim/undo')
-    call mkdir($HOME.'/.vim/undo', "p")
+	call mkdir($HOME.'/.vim/undo', "p")
 endif
 
 " use own skeletons for new files
