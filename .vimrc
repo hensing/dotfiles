@@ -1,34 +1,34 @@
 " be iMproved, required by vundle
 set nocompatible
-filetype off                  " required
+filetype off					" required (vundle)
 
 " set the runtime path to include Vundle and initialize
 set rtp+=~/.vim/bundle/Vundle.vim
 call vundle#begin()
 
-" let Vundle manage Vundle, required
-Plugin 'VundleVim/Vundle.vim'
+Plugin 'VundleVim/Vundle.vim'			" required (vundle)
 
-" other Plugins
+" OTHER PLUGINS
 Plugin 'vim-airline/vim-airline'		" powerline
 Plugin 'thomwiggers/vim-colors-solarized'	" solarized colors
 Plugin 'benekastah/neomake'			" async. syntax checker
 Plugin 'davidhalter/jedi-vim'			" python completion
 Plugin 'hynek/vim-python-pep8-indent'		" python pep8
 Plugin 'LaTeX-Box-Team/LaTeX-Box'		" Lightweight Toolbox for LaTeX
-Plugin 'airblade/vim-gitgutter'		" git changes in gutter
+Plugin 'airblade/vim-gitgutter'			" git changes in gutter
 Plugin 'tpope/vim-fugitive'			" git commit/diff/...
 Plugin 'scrooloose/nerdcommenter'		" comments
 Plugin 'kshenoy/vim-signature'			" display,toggle and iterate marks
-Plugin 'kien/ctrlp.vim'			" ctrl p filebrowser
+Plugin 'kien/ctrlp.vim'				" ctrl p filebrowser
 Plugin 'SirVer/ultisnips'			" sniplets engine
 Plugin 'honza/vim-snippets'			" sniplets
 "Plugin 'ivanov/vim-ipython'			" communication with ipython kernels
 Plugin 'rust-lang/rust.vim'			" vim rust ftplugin
 Plugin 'Valloric/YouCompleteMe'			" completion for several languages
-" All of your Plugins must be added before the following line
-call vundle#end()				" required
-filetype plugin indent on			" required
+
+" all plugins must be added before this line
+call vundle#end()				" required (vundle)
+filetype plugin indent on			" required (vundle)
 
 " DISPLAY OPTIONS
 colorscheme solarized
@@ -85,6 +85,7 @@ set wildmode=full			" alternative: longest,list
 vnoremap < <gv
 vnoremap > >gv
 
+" PLUGIN CONFIGURATION
 " airline config
 let g:airline_powerline_fonts = 1
 let g:airline#extensions#tabline#enabled = 1
