@@ -20,7 +20,7 @@ apply:
 	gconftool-2 --load gnome-terminal-conf.xml || true
 
 vim:
-	vim +PluginInstall +qall
+	vim +PluginInstall +PluginClean +qall
 	~/.vim/bundle/YouCompleteMe/install.py --clang-completer
 
 clean:
