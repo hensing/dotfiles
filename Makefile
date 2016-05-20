@@ -19,6 +19,10 @@ dump:
 apply:
 	gconftool-2 --load gnome-terminal-conf.xml || true
 
+vim:
+	vim +PluginInstall +qall
+	~/.vim/bundle/YouCompleteMe/install.py --clang-completer
+
 clean:
 	echo "removing dead links"
 	find -L ~/ -name . -o -type d -prune -o -type l -exec rm {} +

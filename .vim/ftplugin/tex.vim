@@ -59,3 +59,8 @@ let g:LatexBox_quickfix = 2
 
 " compile async an background
 let g:LatexBox_latexmk_async = 1
+
+" add triggers to YCM for LaTeX-Box autocompletion
+let g:ycm_semantic_triggers = {
+\  'tex'  : ['{'],
+\ }

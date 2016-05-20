@@ -25,7 +25,7 @@ Plugin 'SirVer/ultisnips'			" sniplets engine
 Plugin 'honza/vim-snippets'			" sniplets
 "Plugin 'ivanov/vim-ipython'			" communication with ipython kernels
 Plugin 'rust-lang/rust.vim'			" vim rust ftplugin
-
+Plugin 'Valloric/YouCompleteMe'			" completion for several languages
 " All of your Plugins must be added before the following line
 call vundle#end()				" required
 filetype plugin indent on			" required
@@ -39,7 +39,6 @@ set laststatus=2			" show last status
 set nu					" line numbers
 set matchpairs=(:),[:],{:},<:>		" set matching brackets, etc.
 set list listchars=tab:»·,trail:·	" display tabs and trailing spaces
-set list
 
 " be quiet
 set noerrorbells
@@ -90,9 +89,18 @@ vnoremap > >gv
 let g:airline_powerline_fonts = 1
 let g:airline#extensions#tabline#enabled = 1
 
+" YouCompleteMe options
+let g:ycm_global_ycm_extra_conf='~/.vim/.ycm_extra_conf.py'
+" let g:ycm_path_to_python_interpreter='/usr/bin/python/'
+
+" use omnicomplete whenever there's no completion engine
+set omnifunc=syntaxcomplete#Complete
+let g:ycm_key_list_select_completion = ['<Tab>']
+let g:ycm_key_list_previous_completion = ['<S-Tab>']
+
 " ultisnips
 let g:UltiShipsSnippetsDir="~/.config/nvim/plugged/vim-snippets/snippets"
-let g:UltiSnipsExpandTrigger="<tab>"
+let g:UltiSnipsExpandTrigger="<enter>"
 let g:UltiSnipsJumpForwardTrigger="<tab>"
 let g:UltiSnipsJumpBackwardTrigger="<s-tab>"
 
