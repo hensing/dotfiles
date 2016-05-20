@@ -60,7 +60,14 @@ set smartcase				" same except for patterns containing upper case
 set hlsearch				" highlight search
 
 " make the history longer
-set history=500
+set history=1000
+
+" save undo history
+set undofile
+set undodir=$HOME/.vim/undo
+if !isdirectory($HOME.'/.vim/undo')
+    call mkdir($HOME.'/.vim/undo', "p")
+endif
 
 " use own skeletons for new files
 au BufNewFile *.py 0r ~/.vim/skeleton/skeleton.py | normal | Gdd
