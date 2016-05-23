@@ -1,0 +1,50 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+clears all cells of an ipython notebook
+given via stdin or filename
+by H.Dickten 2014
+"""
+import sys
+
+try:
+    import nbformat
+except ImportError:
+    import IPython.nbconvert as nbconvert
+
+
+NBVERSION = 4
+
+
+def clear_outputs(notebook, clear_prompt_numbers=True):
+    """
+    clears the output of all cells in an ipython notebook
+
+    Parameters:
+    ===========
+    clear_promt_numbers: bool, optional
+        clears the prompt numbers of all cells
+        (default: True)
+    """
+    for cell in notebook.cells:
+        if cell.get('cell_type', None) == 'code':
+            cell.outputs = []
+            if clear_prompt_numbers is True:
+                cell.execution_count = None
+                cell.pop('prompt_number', None)
+
+    return notebook
+
+if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        INFILE = sys.argv[1]
+    else:
+        INFILE = sys.stdin
+    if len(sys.argv) > 2:
+        OUTFILE = open(sys.argv[2], 'w')
+    else:
+        OUTFILE = sys.stdout
+    NB = nbformat.read(fp=INFILE, as_version=NBVERSION)
+    NB = clear_outputs(NB)
+    NBS = nbformat.writes(NB, version=NBVERSION).encode('utf-8')
+    OUTFILE.write(NBS)
