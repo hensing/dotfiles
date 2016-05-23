@@ -33,12 +33,13 @@ filetype plugin indent on			" required (vundle)
 " DISPLAY OPTIONS
 colorscheme solarized
 set background=dark
-set display+=lastline			" display last edited line
-set showmode				" display current mode
-set laststatus=2			" show last status
-set nu					" line numbers
-set matchpairs=(:),[:],{:},<:>		" set matching brackets, etc.
-set list listchars=tab:»·,trail:·	" display tabs and trailing spaces
+set display+=lastline					" display last edited line
+set showmode						" display current mode
+set laststatus=2					" show last status
+set nu							" line numbers
+set matchpairs=(:),[:],{:},<:>				" set matching brackets, etc.
+set list
+set listchars=tab:▸\ ,trail:·,precedes:«,extends:»	" display tabs and trailing spaces
 
 " be quiet
 set noerrorbells
