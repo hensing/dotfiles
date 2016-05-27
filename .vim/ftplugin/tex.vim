@@ -64,3 +64,6 @@ let g:LatexBox_latexmk_async = 1
 let g:ycm_semantic_triggers = {
 \  'tex'  : ['{'],
 \ }
+
+" match \(chap|eq|fig|page|sec|)ref\(chap|eq|fig|page|sec|){
+let g:LatexBox_ref_pattern = '\m\C\\v\?\(chap\|eq\|fig\|page\|sec\|[cC]\)\?ref\?\(chap\|eq\|fig\|page\|sec\|[cC]\)\?\*\?\_\s*{'
