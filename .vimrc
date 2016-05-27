@@ -93,6 +93,9 @@ set wildmode=full			" alternative: longest,list
 vnoremap < <gv
 vnoremap > >gv
 
+" LaTeX: latex instead of plain-tex
+let g:tex_flavor = "latex"
+
 " PLUGIN CONFIGURATION
 " airline config
 let g:airline_powerline_fonts = 1
