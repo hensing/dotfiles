@@ -94,7 +94,7 @@
       - {name: libboost-python-dev}
       - {name: libconfuse-dev}
       - {name: libfreetype6-dev}
-      - {name: libgsl0-dev}
+      - {name: libgsl-dev}
       - {name: libhdf5-dev}
       - {name: libiw-dev}
       - {name: liblapack-dev}
