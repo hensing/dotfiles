@@ -406,7 +406,7 @@
       <key>profiles/Default/font</key>
       <schema_key>/schemas/apps/gnome-terminal/profiles/Default/font</schema_key>
       <value>
-        <string>DejaVu Sans Mono for Powerline 12</string>
+        <string>Iosevka Term Medium 12</string>
       </value>
     </entry>
     <entry>
@@ -654,7 +654,7 @@
     <entry>
       <key>profiles/Profile0/font</key>
       <value>
-        <string>DejaVu Sans Mono for Powerline 12</string>
+        <string>Iosevka Term Medium 12</string>
       </value>
     </entry>
     <entry>
@@ -876,7 +876,7 @@
     <entry>
       <key>profiles/Profile1/font</key>
       <value>
-        <string>DejaVu Sans Mono for Powerline 12</string>
+        <string>Iosevka Term Medium 12</string>
       </value>
     </entry>
     <entry>
@@ -1098,7 +1098,7 @@
     <entry>
       <key>profiles/Profile2/font</key>
       <value>
-        <string>DejaVu Sans Mono for Powerline 16</string>
+        <string>Iosevka Term Medium 16</string>
       </value>
     </entry>
     <entry>
