@@ -1,7 +1,8 @@
 #!/usr/bin/python
 # coding: utf-8
 """
-    patches the .git/config and .gitattributes and adds 'filter_notebook' as filter
+    configures git to filter / clear the output of ipython notebooks by
+    patching the .git/config and .gitattributes and adding 'filter_notebook' as filter
 """
 import os
 import sys
