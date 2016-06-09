@@ -6,6 +6,7 @@
 import os
 import sys
 import warnings
+import distutils.spawn
 
 
 __author__ = 'Henning Dickten'
@@ -13,11 +14,15 @@ __author__ = 'Henning Dickten'
 
 def add_filter(repopath=os.path.curdir):
     "main routine"
+    # check if filter_notebook is in PATH
+    if distutils.spawn.find_executable('filter_notebook', path=None) is None:
+        warnings.warn('filter_notebook not in PATH')
+        sys.exit(os.errno.ENOPKG)
 
     # check for git
     if not os.path.exists(os.path.join(repopath, '.git')):
         warnings.warn('.git directory not found! EXIT.')
-        sys.exit(os.errno.EIO)
+        sys.exit(os.errno.ENOENT)
 
     # patch .git/config
     with open(os.path.join(repopath, '.git', 'config'), 'r') as fobj:
