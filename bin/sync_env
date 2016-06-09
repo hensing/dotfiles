@@ -5,7 +5,7 @@ SYNOLOGY=/volume1/powertower_daten/virtualenvs/conda_hd/
 SRC=/home/hensing/miniconda2/envs/conda_hd/
 
 echo "syncing env"
-rsync -rltpDP --safe-links $SRC root@synology:$SYNOLOGY
+rsync -rltpDP --delete --safe-links $SRC root@synology:$SYNOLOGY
 #ssh root@synology "chown root:root $SYNOLOGY"
 
 echo "patching paths ..."
