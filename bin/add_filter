@@ -1,0 +1,56 @@
+#!/usr/bin/python
+# coding: utf-8
+"""
+    patches the .git/config and .gitattributes and adds 'filter_notebook' as filter
+"""
+import os
+import sys
+import warnings
+
+
+__author__ = 'Henning Dickten'
+
+
+def add_filter(repopath=os.path.curdir):
+    "main routine"
+
+    # check for git
+    if not os.path.exists(os.path.join(repopath, '.git')):
+        warnings.warn('.git directory not found! EXIT.')
+        sys.exit(os.errno.EIO)
+
+    # patch .git/config
+    with open(os.path.join(repopath, '.git', 'config'), 'r') as fobj:
+        config = [line.rstrip('\r\n') for line in fobj.readlines()]
+
+    line = '[filter "filter_notebook"]'
+
+    if line not in config:
+        with open(os.path.join(repopath, '.git', 'config'), 'w') as fobj:
+            print('patching %s ...' % fobj.name)
+            config.append(line)
+            config.append('\tclean = "./filter_notebook"')
+            fobj.writelines([line + '\n' for line in config])
+
+    # add .gitattributes
+    with open(os.path.join(repopath, '.gitattributes'), 'a+') as fobj:
+        attributes = [line.rstrip('\r\n') for line in fobj.readlines()]
+
+    line = '*.ipynb filter=filter_notebook'
+
+    if line not in attributes:
+        with open(os.path.join(repopath, '.gitattributes'), 'w') as fobj:
+            print('patching %s ...' % fobj.name)
+            attributes.append(line)
+            fobj.writelines([line + '\n' for line in attributes])
+
+    print('done!\n')
+
+
+if __name__ == '__main__':
+    if len(sys.argv) == 2:
+        add_filter(sys.argv[1])
+    elif len(sys.argv) == 1:
+        add_filter()
+    else:
+        print("usage: %s [path to repository]\n" % sys.argv[0])
