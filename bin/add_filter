@@ -42,7 +42,7 @@ def add_filter(repopath=os.path.curdir):
     with open(os.path.join(repopath, '.gitattributes'), 'a+') as fobj:
         attributes = [line.rstrip('\r\n') for line in fobj.readlines()]
 
-    line = '*.ipynb filter=filter_notebook'
+    line = '*.ipynb filter=~/bin/filter_notebook'
 
     if line not in attributes:
         with open(os.path.join(repopath, '.gitattributes'), 'w') as fobj:
