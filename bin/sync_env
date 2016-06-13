@@ -10,3 +10,6 @@ rsync -rltpDP --delete --safe-links $SRC root@synology:$SYNOLOGY
 
 echo "patching paths ..."
 ssh root@synology "sed -i 's#$SRC#$TARGET#g' $SYNOLOGY/bin/*"
+
+echo "changing permissions ..."
+ssh root@synology "chown -Rh root:root $SYNOLOGY"
