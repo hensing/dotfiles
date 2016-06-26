@@ -107,7 +107,8 @@ alias outcat="$PAGER *.out(L+0)"
 alias z='vim ~/.zshrc'
 alias v='vim ~/.vimrc'
 if (( $+commands[nvim] )); then
-    alias vim='nvim'
+	alias vim='nvim'
+	export EDITOR=nvim
 fi
 
 alias mmv='noglob zmv -W'
