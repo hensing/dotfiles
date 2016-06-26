@@ -20,7 +20,8 @@ apply:
 	gconftool-2 --load gnome-terminal-conf.xml || true
 
 vim:
-	vim +PluginInstall +PluginClean +qall
+	/usr/bin/env nvim +silent +PluginInstall +PluginClean +qall || /usr/bin/env vim +silent +PluginInstall +PluginClean +qall
+	sudo pip install -U neovim
 	~/.vim/bundle/YouCompleteMe/install.py --clang-completer
 
 clean:
