@@ -116,6 +116,7 @@ alias zln='zmv -L'
 alias zcp='zmv -C'
 
 alias j='jobs -l'
+alias up='echo " `uptime -p` since `uptime -s`\n"'
 
 # htcondor alias
 if (( $+commands[condor_status] )) ; then
