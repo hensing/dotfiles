@@ -5,3 +5,7 @@
 	default = simple
 [alias]
 	undo-commit = reset --soft HEAD^
+[rebase]
+	autostash = true
+[diff]
+	compactionHeuristic = true
