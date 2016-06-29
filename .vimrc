@@ -24,6 +24,7 @@ Plugin 'SirVer/ultisnips'			" sniplets engine
 Plugin 'honza/vim-snippets'			" sniplets
 "Plugin 'ivanov/vim-ipython'			" communication with ipython kernels
 Plugin 'rust-lang/rust.vim'			" vim rust ftplugin
+Plugin 'chase/vim-ansible-yaml'			" vim ansible ftplugin
 Plugin 'Valloric/YouCompleteMe'			" completion for several languages
 
 " all plugins must be added before this line
