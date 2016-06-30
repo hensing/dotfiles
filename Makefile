@@ -14,10 +14,10 @@ tiny:
 	./deploy.sh
 
 dump:
-	gconftool-2 --dump '/apps/gnome-terminal' > gnome-terminal-conf.xml
+	dconf dump /org/gnome/terminal/ > gnome-terminal-conf.dconf
 
 apply:
-	gconftool-2 --load gnome-terminal-conf.xml || true
+	dconf load /org/gnome/terminal/ < gnome-terminal-conf.dconf
 
 vim:
 	/usr/bin/env nvim +silent +PluginInstall +PluginClean +qall || /usr/bin/env vim +silent +PluginInstall +PluginClean +qall
