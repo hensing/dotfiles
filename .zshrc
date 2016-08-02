@@ -58,7 +58,7 @@ setopt nobeep               # no beeping, honking, whistling...
 # }}}
 
 
-if [[ $OSTYPE == linux-gnu ]]; then
+if [[ $OSTYPE == linux* ]]; then
     PATH="$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin:/usr/games:$HOME/miniconda2/bin"
 else
     PATH="$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin:$HOME/miniconda2/bin"
@@ -66,7 +66,7 @@ fi
 
 # alias {{{
 # bsd und gnu ls fressen verschiedene optionen *kotz* 
-if [[ $OSTYPE == linux-gnu ]]; then
+if [[ $OSTYPE == linux* ]]; then
     alias ls='/bin/ls --color'
     alias la='/bin/ls -Ahl --color'
     alias l.='/bin/ls -Ahld --color .*'
@@ -159,8 +159,6 @@ ldiff() {
 # eigene IP im WAN, falls hinter router
 alias myip='curl checkip.dyndns.org -s | sed "s/[^0-9]*//" | fgrep . | cut -d "<" -f 1'
 
-# aticonfig alias
-alias ati='aticonfig --od-gettemperature --od-getclocks --adapter=all'
 # }}}
 
 
@@ -445,7 +443,7 @@ zle -N run-with-sudo
 
   # Funktion zum konvertieren nach utf-8
   conv2utf8() {
-      if [[ $OSTYPE == linux-gnu ]]; then
+      if [[ $OSTYPE == linux* ]]; then
             ENCIN=`file $@ -i | awk '{print $3}' | sed 's/charset=//g'`
       else
             ENCIN=`file $@ -I | awk '{print $3}' | sed 's/charset=//g'`
@@ -500,10 +498,6 @@ zle -N run-with-sudo
 # }}}
 #
 #
-
-if [[ $OSTYPE == linux-gnu ]]; then
-    LD_LIBRARY_PATH=/opt/AMDAPP/lib/x86_64:$LD_LIBRARY_PATH
-fi
 
 # set key bindings via terminfo
 # via http://zshwiki.org/home/zle/bindkey
