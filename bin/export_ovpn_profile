@@ -57,7 +57,7 @@ def main(args):
         with open(ca_fname[0].split()[1], 'r') as fobj:
             sca = fobj.readlines()
     else:
-        with open(os.path.join(args.keypath, "ca.crt", 'r')) as fobj:
+        with open(os.path.join(args.keypath, "ca.crt"), 'r') as fobj:
             sca = fobj.readlines()
 
     # get client cert / key:
