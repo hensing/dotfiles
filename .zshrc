@@ -557,5 +557,5 @@ export LS_COLORS
 # notify by ntfy (https://github.com/dschep/nfty)
 if (( $+commands[ntfy] )); then
 	eval "$(ntfy shell-integration -s zsh -L 300 -f)"
-	export AUTO_NTFY_DONE_IGNORE="vim screen tmux ipython"
+	export AUTO_NTFY_DONE_IGNORE="vim screen tmux ipython in inp"
 fi
