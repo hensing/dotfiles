@@ -17,18 +17,23 @@ def parse_args(args=None):
         args = sys.argv
 
     parser = argparse.ArgumentParser(
-        description="Export OpenVPN-configs into .opvn file")
+        description="Exports OpenVPN-configs into .opvn file")
 
     parser.add_argument('config',
-                        help='openvpn config file')
+                        help="the openvpn config file")
 
     parser.add_argument('keyname', nargs='?',
                         default=None,
-                        help='keyname (without .key or .crt) '
-                             'to use instead of cert/key in config.')
+                        help="keyname (without .key or .crt) "
+                             "to use instead of cert/key in config.")
 
     parser.add_argument('-k', '--keypath',
+                        help="path to key files (default $PWD)",
                         default=os.path.curdir)
+
+    parser.add_argument('-l', '--local',
+                        help="local only: don't route traffic",
+                        action='store_true')
 
     return parser.parse_args(args[1:])
 
@@ -100,14 +105,23 @@ def main(args):
     base.append("</key>\n")
     base.append("\n")
 
+    # only local or routed?
+    if args.local is True:
+        base.append("\n# only local connection\n")
+        base.append("route-nopull\n")
+        base.append("route 10.8.0.0 255.255.255.0\n")
+
     # derive filename out
     if args.keyname is None:
-        outname = os.path.splitext(os.path.split(args.config)[-1])[0] + '.ovpn'
+        outname = os.path.splitext(os.path.split(args.config)[-1])[0]
     else:
-        outname = args.keyname + '.ovpn'
+        outname = args.keyname
+
+    if args.local is True:
+        outname += '_local'
 
     # export
-    with open(outname, 'w') as fobj:
+    with open(outname + '.ovpn', 'w') as fobj:
         fobj.writelines(base)
 
 if __name__ == '__main__':
