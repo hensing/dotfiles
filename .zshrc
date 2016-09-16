@@ -495,6 +495,15 @@ zle -N run-with-sudo
     fi
   }
 
+  # list all manually installed packages
+  dump_installed() {
+	if (( $+commands[aptitude] )); then
+		comm -23 <(aptitude search '~i !~M' -F '%p' | sed "s/ *$//" | sort -u) <(gzip -dc /var/log/installer/initial-status.gz | sed -n 's/^Package: //p' | sort -u)
+	else
+		comm -23 <(apt-mark showmanual | sort -u) <(gzip -dc /var/log/installer/initial-status.gz | sed -n 's/^Package: //p' | sort -u)
+	fi
+  }
+
 # }}}
 #
 #
