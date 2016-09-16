@@ -228,9 +228,9 @@ bindsym Shift+XF86AudioLowerVolume exec dbus-send --print-reply --dest=org.mpris
 
 
 # Pulse Audio controls
-bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume 0 +10% #increase sound volume
-bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume 0 -- -10% #decrease sound volume
-bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute 0 toggle # mute sound
+#bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume 0 +10% #increase sound volume
+#bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume 0 -- -10% #decrease sound volume
+#bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute 0 toggle # mute sound
 
 # Sreen brightness controls
 bindsym XF86MonBrightnessUp   exec xbacklight -inc 20 # increase screen brightness
@@ -264,10 +264,10 @@ exec mate-settings-daemon
 exec mate-screensaver
 exec nm-applet
 #exec gnome-sound-applet
-exec pasystray || mate-sound-applet
+exec pasystray || mate-volume-control-applet
 exec /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1
 
-## set desktop wallpaper using feh
+# set desktop wallpaper using feh
 exec_always --no-startup-id feh --bg-scale ~/Pictures/current
 
 ## Lock screen, start time for automatic screen lock
