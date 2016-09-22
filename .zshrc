@@ -206,6 +206,13 @@ if (( $+commands[keychain] )) ; then
     eval `keychain --eval --agents gpg,ssh --timeout 10 -q`
 fi
 
+# todo-txt
+if (( $+commands[todo-txt] )) ; then
+    alias t="todo-txt"
+    alias tl="todo-txt ls"
+    alias ta="todo-txt add"
+fi
+
 
 # prompt {{{
 
