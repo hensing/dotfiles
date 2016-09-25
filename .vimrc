@@ -27,6 +27,7 @@ Plugin 'rust-lang/rust.vim'			" vim rust ftplugin
 Plugin 'chase/vim-ansible-yaml'			" vim ansible ftplugin
 Plugin 'Valloric/YouCompleteMe'			" completion for several languages
 Plugin 'editorconfig/editorconfig-vim'		" EditorConfig File support
+Plugin 'dbeniamine/todo.txt-vim'		" todo.txt support
 
 " all plugins must be added before this line
 call vundle#end()				" required (vundle)
