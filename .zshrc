@@ -145,7 +145,11 @@ if (( $+commands[git] )) ; then
     alias gs='git status -sb' # upgrade your git if -sb breaks for you. it's fun.
 fi
 # ipython notebook alias
-if (( $+commands[ipython] )) ; then
+if (( $+commands[jupyter] )) ; then
+    alias i='jupyter console'
+    alias in='jupyter notebook'
+    alias inp='jupyter notebook --ip=0.0.0.0'
+elif (( $+commands[ipython] )) ; then
     alias i='ipython'
     alias in='ipython notebook'
     alias inp='ipython notebook --ip=0.0.0.0'
