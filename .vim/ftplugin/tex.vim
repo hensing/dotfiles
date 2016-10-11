@@ -65,5 +65,8 @@ let g:ycm_semantic_triggers = {
 \  'tex'  : ['{'],
 \ }
 
+" remove trailing whitespace on writing buffer
+autocmd BufWritePre * :%s/\s\+$//e
+
 " match \(chap|eq|fig|page|sec|)ref\(chap|eq|fig|page|sec|){
 let g:LatexBox_ref_pattern = '\m\C\\v\?\(chap\|eq\|fig\|page\|sec\|[cC]\)\?ref\?\(chap\|eq\|fig\|page\|sec\|[cC]\)\?\*\?\_\s*{'
