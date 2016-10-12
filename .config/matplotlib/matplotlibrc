@@ -1,0 +1,35 @@
+# save options
+savefig.dpi: 300
+savefig.bbox: tight
+savefig.pad_inches: 0.1
+savefig.transparent: True
+
+# ticks
+ytick.direction: out
+xtick.direction: out
+
+# mpl > 2.0
+#xtick.top: False
+#ytick.right: False
+#axes.xaxis.right: True
+
+# boxplots
+boxplot.patchartist: true
+boxplot.boxprops.color: black
+boxplot.whiskerprops.color: black
+boxplot.whiskerprops.linestyle: -
+boxplot.medianprops.color: dd1c24
+boxplot.meanprops.color: dd1c24
+
+# legend
+legend.scatterpoints: 1
+legend.numpoints: 1
+legend.frameon: 1
+legend.fancybox: 1
+legend.framealpha: .8
+
+# imshow
+image.interpolation: nearest
+
+# color cycle: black, red, hot red, orange, yellow, green, green blue, blue
+axes.prop_cycle: cycler('color', ['000000', 'a30134', 'dd1c24', 'e37c1d', 'ffde75', '677718', '00665e', '0076c0', ])
