@@ -21,7 +21,5 @@ do
     fi
 done
 
-make apply
-
 #ln -sf  ~/.dotfiles/.git/modules/.vim/bundle/Vundle.vim ~/.vim/bundle/Vundle.vim/.git
 
