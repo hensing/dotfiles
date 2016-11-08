@@ -15,10 +15,10 @@ tiny:
 	./deploy.sh
 
 dump:
-	dconf dump /org/gnome/terminal/ > gnome-terminal-conf.dconf
+	dconf dump /org/mate/terminal/ > mate-terminal-conf.dconf
 
 apply:
-	dconf load /org/gnome/terminal/ < gnome-terminal-conf.dconf
+	dconf load /org/mate/terminal/ < mate-terminal-conf.dconf
 
 vim:
 	/usr/bin/env nvim +silent +PluginInstall +PluginClean +qall || /usr/bin/env vim +silent +PluginInstall +PluginClean +qall
