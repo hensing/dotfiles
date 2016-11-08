@@ -7,7 +7,7 @@ HEADLESS=.dircolors\
 all:
 	git submodule update --init --recursive
 	./deploy.sh
-	./fonts/install.sh
+	sudo fc-cache -f
 
 tiny:
 	git submodule init $(HEADLESS)
