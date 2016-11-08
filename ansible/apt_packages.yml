@@ -6,6 +6,7 @@
       - {name: i3wm, id: "941C42E6"}
       - {name: mendeley, id: "D800C7D66F036044"}
       - {name: owncloud, id: "BA684223"}
+      - {name: owncloud2, id: "4ABE1AC7557BEFF9"}
       - {name: spotify, id: "D2C19886"}
 
     apt_repos_desktop:
@@ -47,6 +48,7 @@
       - {name: zsh, state: latest, default_release: "{{ ansible_distribution_release }}-backports"}
 
     packages_desktop:
+      - {name: biber}
       - {name: cifs-utils}
       - {name: dropbox}
       - {name: feh}
