@@ -128,4 +128,9 @@ function Run_neomake()
 		Neomake
 	endif
 endfunction
+
+" activate live substitution
+if exists('&inccommand')
+	set inccommand=split
+endif
 autocmd! BufWritePost * call Run_neomake()
