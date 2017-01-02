@@ -11,6 +11,9 @@ setlocal number
 set fileencoding=utf8
 set nobomb  " write byte order mark
 
+" highlight repeated words
+highlight DoubleWord ctermbg=darkred ctermfg=white guibg=#592929
+match DoubleWord /\c\v<(\w+)\s+\1>/
 
 " Formatoptionen setzen:
 " a: automatic formatting of paragraphs when insering or deleting (nervt!!!)
