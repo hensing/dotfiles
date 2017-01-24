@@ -15,6 +15,10 @@ set nobomb  " write byte order mark
 highlight DoubleWord ctermbg=darkred ctermfg=white guibg=#592929
 match DoubleWord /\c\v<(\w+)\s+\1>/
 
+" ignore cite citeauthor ref* for spell
+syn match CiteNoSpell '\\cite\(\w\+\|\){.\{-}}' contains=@NoSpell
+syn match RefNoSpell '\\ref\(\w\+\|\){.\{-}}' contains=@NoSpell
+
 " Formatoptionen setzen:
 " a: automatic formatting of paragraphs when insering or deleting (nervt!!!)
 " c: automatic formatting for comments
