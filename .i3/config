@@ -265,7 +265,7 @@ exec mate-screensaver
 exec nm-applet
 #exec gnome-sound-applet
 exec pasystray || mate-volume-control-applet
-exec /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1
+exec mate-polkit
 
 # set desktop wallpaper using feh
 exec_always --no-startup-id feh --bg-scale ~/Pictures/current
