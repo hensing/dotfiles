@@ -38,6 +38,7 @@ colorscheme solarized
 set background=dark
 set display+=lastline					" display last edited line
 set showmode						" display current mode
+let &showbreak = ' ↳  '					" show linebreak
 set laststatus=2					" show last status
 set nu							" line numbers
 set matchpairs=(:),[:],{:},<:>				" set matching brackets, etc.
