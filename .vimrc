@@ -93,6 +93,12 @@ cmap w!! %!sudo tee > /dev/null %
 set wildchar=<TAB>			" type to start wildcard expansion in the command-line
 set wildmenu				" nicer autocompletion
 set wildmode=full			" alternative: longest,list
+
+" ignore pattern for files: ignore that TeX crap
+set wildignore+=*.*~,*.acn,*.acr,*.alg,*.aux,*.bbl,*.bcf,*.blg,*.dvi,*.fdb_latexmk,*.fls,
+set wildignore+=*.glg,*.glo,*.gls,*.ist,*.latexmain,*.log,*.nav,*.nlo,*.out,*.pdf*,
+set wildignore+=*.run.xml,*.slg,*.snm,*.syg,*.syi,*.synctex.gz,*.tdo,*.toc,*/tmp/*
+
 " keep selection when re-indenting
 vnoremap < <gv
 vnoremap > >gv
