@@ -11,6 +11,7 @@ Plugin 'VundleVim/Vundle.vim'			" required (vundle)
 " OTHER PLUGINS
 Plugin 'vim-airline/vim-airline'		" powerline
 Plugin 'thomwiggers/vim-colors-solarized'	" solarized colors
+Plugin 'morhetz/gruvbox'			" gruvbox colors
 Plugin 'benekastah/neomake'			" async. syntax checker
 Plugin 'davidhalter/jedi-vim'			" python completion
 Plugin 'hynek/vim-python-pep8-indent'		" python pep8
@@ -34,7 +35,9 @@ call vundle#end()				" required (vundle)
 filetype plugin indent on			" required (vundle)
 
 " DISPLAY OPTIONS
-colorscheme solarized
+"colorscheme solarized
+let g:gruvbox_italic=1
+colorscheme gruvbox
 set background=dark
 set display+=lastline					" display last edited line
 set showmode						" display current mode
