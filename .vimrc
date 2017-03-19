@@ -11,6 +11,7 @@ Plugin 'VundleVim/Vundle.vim'			" required (vundle)
 " OTHER PLUGINS
 Plugin 'vim-airline/vim-airline'		" powerline
 Plugin 'thomwiggers/vim-colors-solarized'	" solarized colors
+Plugin 'morhetz/gruvbox'			" gruvbox colors
 Plugin 'benekastah/neomake'			" async. syntax checker
 Plugin 'davidhalter/jedi-vim'			" python completion
 Plugin 'hynek/vim-python-pep8-indent'		" python pep8
@@ -34,10 +35,13 @@ call vundle#end()				" required (vundle)
 filetype plugin indent on			" required (vundle)
 
 " DISPLAY OPTIONS
-colorscheme solarized
+"colorscheme solarized
+let g:gruvbox_italic=1
+colorscheme gruvbox
 set background=dark
 set display+=lastline					" display last edited line
 set showmode						" display current mode
+let &showbreak = ' ↳  '					" show linebreak
 set laststatus=2					" show last status
 set nu							" line numbers
 set matchpairs=(:),[:],{:},<:>				" set matching brackets, etc.
@@ -92,6 +96,12 @@ cmap w!! %!sudo tee > /dev/null %
 set wildchar=<TAB>			" type to start wildcard expansion in the command-line
 set wildmenu				" nicer autocompletion
 set wildmode=full			" alternative: longest,list
+
+" ignore pattern for files: ignore that TeX crap
+set wildignore+=*.*~,*.acn,*.acr,*.alg,*.aux,*.bbl,*.bcf,*.blg,*.dvi,*.fdb_latexmk,*.fls,
+set wildignore+=*.glg,*.glo,*.gls,*.ist,*.latexmain,*.log,*.nav,*.nlo,*.out,*.pdf*,
+set wildignore+=*.run.xml,*.slg,*.snm,*.syg,*.syi,*.synctex.gz,*.tdo,*.toc,*/tmp/*
+
 " keep selection when re-indenting
 vnoremap < <gv
 vnoremap > >gv
