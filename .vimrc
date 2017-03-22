@@ -34,9 +34,9 @@ call plug#end()				" required (pluginmanager)
 filetype plugin indent on			" required (vundle)
 
 " DISPLAY OPTIONS
-"colorscheme solarized
 let g:gruvbox_italic=1
-colorscheme gruvbox
+colorscheme solarized
+"colorscheme gruvbox
 set background=dark
 set display+=lastline					" display last edited line
 set showmode						" display current mode

@@ -1,3 +1,16 @@
+# fonts
+# text.fontsize: medium
+# 'font.family': 'serif'
+axes.titleweight: bold
+axes.titlesize: medium
+axes.labelsize: small
+legend.fontsize: small
+xtick.labelsize: small
+ytick.labelsize: small
+
+# use serif math font
+#mathtext.rm: serif
+
 # save options
 savefig.dpi: 300
 savefig.bbox: tight
@@ -20,6 +33,7 @@ boxplot.whiskerprops.color: black
 boxplot.whiskerprops.linestyle: -
 boxplot.medianprops.color: dd1c24
 boxplot.meanprops.color: dd1c24
+boxplot.flierprops.marker: +
 
 # legend
 legend.scatterpoints: 1
