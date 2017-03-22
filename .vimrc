@@ -1,37 +1,35 @@
 " be iMproved, required by vundle
 set nocompatible
-filetype off					" required (vundle)
 
 " set the runtime path to include Vundle and initialize
-set rtp+=~/.vim/bundle/Vundle.vim
-call vundle#begin()
-
-Plugin 'VundleVim/Vundle.vim'			" required (vundle)
+"set rtp+=~/.vim/bundle/Vundle.vim
+call plug#begin('~/.vim/bundle')
+filetype off					" required (pluginmanager)
 
 " OTHER PLUGINS
-Plugin 'vim-airline/vim-airline'		" powerline
-Plugin 'thomwiggers/vim-colors-solarized'	" solarized colors
-Plugin 'morhetz/gruvbox'			" gruvbox colors
-Plugin 'benekastah/neomake'			" async. syntax checker
-Plugin 'davidhalter/jedi-vim'			" python completion
-Plugin 'hynek/vim-python-pep8-indent'		" python pep8
-Plugin 'LaTeX-Box-Team/LaTeX-Box'		" Lightweight Toolbox for LaTeX
-Plugin 'airblade/vim-gitgutter'			" git changes in gutter
-Plugin 'tpope/vim-fugitive'			" git commit/diff/...
-Plugin 'scrooloose/nerdcommenter'		" comments
-Plugin 'kshenoy/vim-signature'			" display,toggle and iterate marks
-Plugin 'kien/ctrlp.vim'				" ctrl p filebrowser
-Plugin 'SirVer/ultisnips'			" sniplets engine
-Plugin 'honza/vim-snippets'			" sniplets
-"Plugin 'ivanov/vim-ipython'			" communication with ipython kernels
-Plugin 'rust-lang/rust.vim'			" vim rust ftplugin
-Plugin 'chase/vim-ansible-yaml'			" vim ansible ftplugin
-Plugin 'Valloric/YouCompleteMe'			" completion for several languages
-Plugin 'editorconfig/editorconfig-vim'		" EditorConfig File support
-Plugin 'dbeniamine/todo.txt-vim'		" todo.txt support
+Plug 'vim-airline/vim-airline'		" powerline
+Plug 'thomwiggers/vim-colors-solarized'	" solarized colors
+Plug 'morhetz/gruvbox'			" gruvbox colors
+Plug 'benekastah/neomake'			" async. syntax checker
+Plug 'davidhalter/jedi-vim'			" python completion
+Plug 'hynek/vim-python-pep8-indent'		" python pep8
+Plug 'LaTeX-Box-Team/LaTeX-Box'		" Lightweight Toolbox for LaTeX
+Plug 'airblade/vim-gitgutter'			" git changes in gutter
+Plug 'tpope/vim-fugitive'			" git commit/diff/...
+Plug 'scrooloose/nerdcommenter'		" comments
+Plug 'kshenoy/vim-signature'			" display,toggle and iterate marks
+Plug 'kien/ctrlp.vim'				" ctrl p filebrowser
+Plug 'SirVer/ultisnips'			" sniplets engine
+Plug 'honza/vim-snippets'			" sniplets
+"Plug 'ivanov/vim-ipython'			" communication with ipython kernels
+Plug 'rust-lang/rust.vim'			" vim rust ftplugin
+Plug 'chase/vim-ansible-yaml'			" vim ansible ftplugin
+Plug 'Valloric/YouCompleteMe'			" completion for several languages
+Plug 'editorconfig/editorconfig-vim'		" EditorConfig File support
+Plug 'dbeniamine/todo.txt-vim'		" todo.txt support
 
 " all plugins must be added before this line
-call vundle#end()				" required (vundle)
+call plug#end()				" required (pluginmanager)
 filetype plugin indent on			" required (vundle)
 
 " DISPLAY OPTIONS
