@@ -24,7 +24,8 @@ Plug 'honza/vim-snippets'			" sniplets
 "Plug 'ivanov/vim-ipython'			" communication with ipython kernels
 Plug 'rust-lang/rust.vim'			" vim rust ftplugin
 Plug 'chase/vim-ansible-yaml'			" vim ansible ftplugin
-Plug 'Valloric/YouCompleteMe'			" completion for several languages
+"Plug 'Valloric/YouCompleteMe'			" completion for several languages
+Plug 'ajh17/VimCompletesMe'			" very simple completion
 Plug 'editorconfig/editorconfig-vim'		" EditorConfig File support
 Plug 'dbeniamine/todo.txt-vim'		" todo.txt support
 
@@ -113,13 +114,13 @@ let g:airline_powerline_fonts = 1
 let g:airline#extensions#tabline#enabled = 1
 
 " YouCompleteMe options
-let g:ycm_global_ycm_extra_conf='~/.vim/.ycm_extra_conf.py'
+"let g:ycm_global_ycm_extra_conf='~/.vim/.ycm_extra_conf.py'
 " let g:ycm_path_to_python_interpreter='/usr/bin/python/'
 
 " use omnicomplete whenever there's no completion engine
-set omnifunc=syntaxcomplete#Complete
-let g:ycm_key_list_select_completion = ['<Tab>']
-let g:ycm_key_list_previous_completion = ['<S-Tab>']
+"set omnifunc=syntaxcomplete#Complete
+"let g:ycm_key_list_select_completion = ['<Tab>']
+"let g:ycm_key_list_previous_completion = ['<S-Tab>']
 
 " ultisnips
 let g:UltiShipsSnippetsDir="~/.config/nvim/plugged/vim-snippets/snippets"

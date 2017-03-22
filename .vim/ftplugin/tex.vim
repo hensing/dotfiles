@@ -16,7 +16,7 @@ highlight DoubleWord ctermbg=darkred ctermfg=white guibg=#592929
 match DoubleWord /\c\v<(\w+)\s+\1>/
 
 " ignore cite citeauthor ref* for spell
-syn match CiteNoSpell '\\cite\(\w\+\|\){.\{-}}' contains=@NoSpell
+syn match CiteNoSpell '\\(auto\|)cite\(\w\+\|\){.\{-}}' contains=@NoSpell
 syn match RefNoSpell '\\ref\(\w\+\|\){.\{-}}' contains=@NoSpell
 
 " Formatoptionen setzen:
@@ -67,10 +67,12 @@ let g:LatexBox_quickfix = 2
 " compile async an background
 let g:LatexBox_latexmk_async = 1
 
-" add triggers to YCM for LaTeX-Box autocompletion
-let g:ycm_semantic_triggers = {
-\  'tex'  : ['{'],
-\ }
+"" add triggers to YCM for LaTeX-Box autocompletion
+"let g:ycm_semantic_triggers = {
+"\  'tex'  : ['{'],
+"\ }
+" trigger vimcompletsme
+let g:vcm_omni_pattern = '\k\+\(\.\|{\)\k*$'
 
 " remove trailing whitespace on writing buffer
 autocmd BufWritePre * :%s/\s\+$//e
