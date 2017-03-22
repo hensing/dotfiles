@@ -9,7 +9,9 @@ filetype off					" required (pluginmanager)
 " OTHER PLUGINS
 Plug 'vim-airline/vim-airline'		" powerline
 Plug 'thomwiggers/vim-colors-solarized'	" solarized colors
-Plug 'morhetz/gruvbox'			" gruvbox colors
+"Plug 'morhetz/gruvbox'			" gruvbox colors
+Plug 'YorickPeterse/happy_hacking.vim'
+Plug 'sherifkandeel/vim-colors'
 Plug 'benekastah/neomake'			" async. syntax checker
 Plug 'davidhalter/jedi-vim'			" python completion
 Plug 'hynek/vim-python-pep8-indent'		" python pep8
@@ -34,9 +36,8 @@ call plug#end()				" required (pluginmanager)
 filetype plugin indent on			" required (vundle)
 
 " DISPLAY OPTIONS
-let g:gruvbox_italic=1
+" set colorscheme
 colorscheme solarized
-"colorscheme gruvbox
 set background=dark
 set display+=lastline					" display last edited line
 set showmode						" display current mode
