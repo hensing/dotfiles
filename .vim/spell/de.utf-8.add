@@ -4,6 +4,7 @@ Analysestrategie
 Analysetechnik
 Anfallsformen
 Anfallszeitpunktes
+Attraktor
 Attraktoren
 Attraktors
 Auftrittswahrscheinlichkeit
@@ -38,6 +39,7 @@ Farbkodiert
 Farbkodierte
 Felddaten
 Fensterlänge
+Fourierterme
 Gleitfensteranalyse
 Granger
 Hirnaktivität
@@ -60,6 +62,7 @@ Interaktionsstärke
 Interaktionsstärken
 Interaktionsverzögerung
 Intermittenz
+Interquartilabstand
 Jensen
 Kontrollparameter
 Kopplungsstärke
@@ -91,14 +94,18 @@ Periodendauern
 Permutationsentropie
 Permutationssymbole
 Permutationssymbolen
+Phasenbasierte
 Phasendynamik
 Phaseninkremente
+Phasenkohärenz
 Phasensynchronisation
+Phasenwerte
 Phasenwerten
 Phasenzeitreihen
 Poincaré
 Quartils
 Referenzelektroden
+Rekurrenzen
 Responder
 Responders
 Richtungsindikation
@@ -118,6 +125,7 @@ Symbolisierungstechnik
 Symbolisierungstechniken
 Symbolzeitreihe
 Symbolzeitreihen
+Synchronisationsart
 Synchronisationsform
 Synchronisationsphänomene
 Synchronisationsregime
@@ -163,6 +171,7 @@ kurzreichweitigen
 langreichweitige
 pathophysiologischer
 pharmakoresistenten
+phasensynchronisiert
 prächirurgisch
 prächirurgische
 prächirurgischen
@@ -170,8 +179,11 @@ resonanzartige
 resonanzartigen
 resonanzartiger
 ressourcenschonende
+ungekoppelt
+ungekoppelte
 ungekoppelten
 unkorreliert
 verzögerung
 verzögerungen
+Änderungstendenz
 Übergangswahrscheinlichkeiten
