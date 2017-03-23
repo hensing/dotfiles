@@ -76,12 +76,12 @@ if [[ $OSTYPE == linux* ]]; then
         alias as='aptitude search'
         alias aS='aptitude show'
         alias ai='sudo aptitude install'
-        alias auu='sudo aptitude update; sudo aptitude upgrade'
+        alias auu='aku; sudo aptitude update; sudo aptitude upgrade; sudo apt-get autoremove -y'
     else
         alias as='apt-cache search'
         alias as='apt-cache show'
         alias ai='sudo apt-get install'
-        alias auu='sudo apt-get update; sudo apt-get upgrade'
+        alias auu='aku; sudo apt-get update; sudo apt-get upgrade; sudo apt-get autoremove -y'
     fi
 else
     alias ls='/bin/ls -G'
@@ -349,6 +349,17 @@ fi
 # Description: Run command as sudo
 run-with-sudo() { LBUFFER="sudo $LBUFFER" }
 zle -N run-with-sudo
+
+# update all expired keys
+  aku () {
+	  # get expired keys
+	  for key in `apt-key list |grep expired|cut -d ' ' -f 4|cut -d '/' -f 2`;
+	  do
+		  # update
+		  sudo apt-key adv --keyserver keys.gnupg.net --recv-keys $key
+	  done
+  }
+
 
 # Usage: extract <file>
 # Description: extracts archived files (maybe)
