@@ -23,7 +23,8 @@ apply:
 vim:
 	/usr/bin/env nvim +silent +PluginInstall +PluginClean +qall || /usr/bin/env vim +silent +PluginInstall +PluginClean +qall
 	sudo pip install -U neovim
-	~/.vim/bundle/YouCompleteMe/install.py --clang-completer
+	sudo pip3 install -U neovim
+	~/.vim/bundle/YouCompleteMe/install.py --clang-completer || true
 
 ansible:
 	sudo apt-get install software-properties-common

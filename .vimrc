@@ -124,7 +124,7 @@ let g:airline#extensions#tabline#enabled = 1
 "let g:ycm_key_list_previous_completion = ['<S-Tab>']
 
 " ultisnips
-let g:UltiShipsSnippetsDir="~/.config/nvim/plugged/vim-snippets/snippets"
+let g:UltiSnipsSnippetsDir="~/.vim/bundle/vim-snippets/UltiSnips"
 let g:UltiSnipsExpandTrigger="<s-enter>"
 let g:UltiSnipsJumpForwardTrigger="<tab>"
 let g:UltiSnipsJumpBackwardTrigger="<s-tab>"
