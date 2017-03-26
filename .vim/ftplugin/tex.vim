@@ -77,5 +77,5 @@ let g:vcm_omni_pattern = '\k\+\(\.\|{\)\k*$'
 " remove trailing whitespace on writing buffer
 autocmd BufWritePre * :%s/\s\+$//e
 
-" match \(chap|eq|fig|page|sec|)ref\(chap|eq|fig|page|sec|){
-let g:LatexBox_ref_pattern = '\m\C\\v\?\(chap\|eq\|fig\|page\|sec\|tab\|[cC]\)\?ref\?\(chap\|eq\|fig\|page\|sec\|tab\|[cC]\)\?\*\?\_\s*{'
+" match \(chp|eq|fig|page|sec|tab|app|)ref\(chp|eq|fig|page|sec|tab|app|){
+let g:LatexBox_ref_pattern = '\m\C\\v\?\(chp\|eq\|fig\|page\|sec\|tab\|app\|[cC]\)\?ref\?\(chp\|eq\|fig\|page\|sec\|tab\|app\|[cC]\)\?\*\?\_\s*{'
