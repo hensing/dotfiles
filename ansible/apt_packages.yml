@@ -58,10 +58,10 @@
       - {name: libreoffice}
       - {name: mendeleydesktop}
       - {name: neovim, state: latest}
+      - {name: nextcloud-client}
       - {name: nfs-common}
-      - {name: owncloud-client}
-      - {name: pidgin-otr}
       - {name: pidgin-hangouts}
+      - {name: pidgin-otr}
       - {name: pidgin}
       - {name: purple-hangouts}
       - {name: skype}

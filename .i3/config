@@ -278,6 +278,6 @@ bind $mod+Ctrl+46 exec mate-screensaver-command -l
 # Startup programs
 exec dropbox start
 exec ~/bin/syncthing -no-browser
-exec owncloud
+exec nextcloud
 exec redshift -l 50.4:7.6 -t 6200:5300
 #exec /usr/libexec/deja-dup/deja-dup-monitor
