@@ -129,6 +129,23 @@ if (( $+commands[condor_status] )) ; then
 fi
 
 
+# docker alias
+if (( $+commands[docker] )) ; then
+    alias ds='docker ps'
+    alias dl='docker logs'
+    alias di='docker inspect'
+    alias dS='docker stats'
+    alias dsa='docker ps -a'
+    alias drm='docker rm `docker ps -q`'
+    alias drmf='docker rm -f `docker ps -q`'
+    alias dI='docker images'
+    alias drmi='docker rmi `docker images -q`'
+    alias dco='docker-compose'
+    alias dcb='docker-compose build'
+    alias dcu='docker-compose up'
+    alias dcd='docker-compose down'
+fi
+
 # git alias
 if (( $+commands[git] )) ; then
     alias g='git'
