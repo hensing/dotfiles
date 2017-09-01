@@ -59,9 +59,9 @@ setopt nobeep               # no beeping, honking, whistling...
 
 
 if [[ $OSTYPE == linux* ]]; then
-    PATH="$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin:/usr/games:$HOME/miniconda2/bin"
+    PATH="$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin:/usr/games:$HOME/miniconda3/bin:$HOME/miniconda2/bin"
 else
-    PATH="$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin:$HOME/miniconda2/bin"
+    PATH="$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin:$HOME/miniconda3/bin:$HOME/miniconda2/bin"
 fi
 
 # alias {{{
@@ -79,7 +79,7 @@ if [[ $OSTYPE == linux* ]]; then
         alias auu='aku; sudo aptitude update; sudo aptitude upgrade; sudo apt-get autoremove -y'
     else
         alias as='apt-cache search'
-        alias as='apt-cache show'
+        alias aS='apt-cache show'
         alias ai='sudo apt-get install'
         alias auu='aku; sudo apt-get update; sudo apt-get upgrade; sudo apt-get autoremove -y'
     fi
@@ -136,14 +136,15 @@ if (( $+commands[docker] )) ; then
     alias di='docker inspect'
     alias dS='docker stats'
     alias dsa='docker ps -a'
-    alias drm='docker rm `docker ps -q`'
-    alias drmf='docker rm -f `docker ps -q`'
+    alias drm='docker rm `docker ps -q -a`'
+    alias drmf='docker rm -f `docker ps -q -a`'
     alias dI='docker images'
     alias drmi='docker rmi `docker images -q`'
     alias dco='docker-compose'
     alias dcb='docker-compose build'
     alias dcu='docker-compose up'
     alias dcd='docker-compose down'
+    alias killvis='docker rm -f `docker ps --filter label=fg_component_type=visualization -q`'
 fi
 
 # git alias
