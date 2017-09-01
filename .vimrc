@@ -47,6 +47,7 @@ set nu							" line numbers
 set matchpairs=(:),[:],{:},<:>				" set matching brackets, etc.
 set list
 set listchars=tab:▸\ ,trail:·,precedes:«,extends:»	" display tabs and trailing spaces
+set mouse=a
 
 " be quiet
 set noerrorbells
@@ -142,5 +143,6 @@ endfunction
 " activate live substitution
 if exists('&inccommand')
 	set inccommand=split
+	set incsearch
 endif
 autocmd! BufWritePost * call Run_neomake()
