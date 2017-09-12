@@ -65,7 +65,10 @@ else
 fi
 
 # alias {{{
-# bsd und gnu ls fressen verschiedene optionen *kotz* 
+# pass sudo to alias
+alias sudo='nocorrect sudo '
+
+# unify ls commands
 if [[ $OSTYPE == linux* ]]; then
     alias ls='/bin/ls --color'
     alias la='/bin/ls -Ahl --color'
@@ -91,8 +94,10 @@ else
 fi
 alias ll="la | $PAGER"
 
-alias lsnew='/bin/ls -ahlt *(mw-1) | head'
-alias lsold='/bin/ls -ahlt | tail'
+# show files newer then 1 week or newest files if older
+alias lsnew='/bin/ls -ahlt *(.mw-1) || ls -ahlt | head'
+# show old files
+alias lsold='/bin/ls -ahlt *(.)| tail'
 
 alias ..='cd ..'
 alias ...='cd ../..'
@@ -161,6 +166,8 @@ if (( $+commands[git] )) ; then
     alias gco='git checkout'
     alias gb='git branch'
     alias gs='git status -sb' # upgrade your git if -sb breaks for you. it's fun.
+    alias gclean='git clean -xfd --exclude=.env --exclude=.idea'
+    alias gcl='gclean --dry-run && read -q "y?Perform git clean? [y/N]" && gclean'
 fi
 # ipython notebook alias
 if (( $+commands[jupyter] )) ; then
