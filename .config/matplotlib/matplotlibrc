@@ -18,8 +18,8 @@ savefig.pad_inches: 0.1
 savefig.transparent: True
 
 # ticks
-ytick.direction: in
-xtick.direction: in
+# ytick.direction: in
+# xtick.direction: in
 
 # mpl > 2.0
 #xtick.top: False
