@@ -1,8 +1,7 @@
 HOSTNAME := $(shell hostname)
 HEADLESS=.dircolors\
-		 .vim/bundle/Vundle.vim\
-		 .zsh/git-prompt\
-		 .zsh/z
+	 .zsh/git-prompt\
+	 .zsh/z
 
 all:
 	git submodule update --init --recursive
@@ -39,3 +38,4 @@ clean:
 	echo "removing dead links"
 	find -L ~/ -name . -o -type d -prune -o -type l -exec rm {} +
 
+headless: tiny vim
