@@ -110,6 +110,9 @@ vnoremap > >gv
 " LaTeX: latex instead of plain-tex
 let g:tex_flavor = "latex"
 
+" tikz is tex
+autocmd Bufread,BufNewFile *.tikz set filetype=tex
+
 " PLUGIN CONFIGURATION
 " airline config
 let g:airline_powerline_fonts = 1
