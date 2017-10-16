@@ -201,6 +201,7 @@ bindsym $mod+M exec i3-input -F '[con_mark="%s"] focus' -l 1 -P 'Go to: '
 
 # Workspaces zuweisen:
 for_window [class="Spotify"] move to workspace 10
+for_window [ title="^pdfpc - present" ] border none floating enable
 assign [class="Spotify"         ] → 10
 assign [class="Pidgin"          ] → 9
 assign [class="Skype"           ] → 9
