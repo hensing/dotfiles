@@ -1,0 +1,84 @@
+#!/usr/bin/env python
+# coding: utf-8
+"""
+counts the color pages and blank pages of a given pdf via ghostscript
+"""
+__author__ = "Henning Dickten"
+
+import subprocess
+import os
+import sys
+
+
+GS_BIN = '/usr/bin/gs'
+
+
+def get_ink_coverage(pdf_fname):
+    """returns the ink coverage of a pdf provided by ghostscript"""
+    coverage = []
+
+    # check gs version
+    version = subprocess.check_output([GS_BIN, '--version'])
+    try:
+        assert float(version) >= 9.05, "ghostscript 0.05 or never required"
+    except ValueError:
+        raise RuntimeError("Could not determine ghostscript version")
+
+    # get ink coverage
+    out = subprocess.check_output([GS_BIN,
+                                   '-o', '-', '-sDEVICE=inkcov',
+                                   pdf_fname])
+
+    # parse output
+    # 1. find first page
+    first_page = out.find('Page 1')
+
+    # 2. parse coverage
+    for line in out[first_page:].splitlines():
+        if line.startswith('Page'):
+            continue
+        elif "CMYK" in line:
+            # get CMYK values
+            cmyk = [float(val) for val in line.split()[:4]]
+            coverage.append(cmyk)
+        else:
+            raise NotImplementedError("ERROR: Only CMYK mode supported")
+
+    return coverage
+
+
+def show_stat(coverage):
+    """prints the coverage statistics"""
+    color_pages = 0
+    blank_pages = 0
+
+    for entry in coverage:
+        # any value > 0.0 -> not blank
+        if not any(entry):
+            blank_pages += 1
+        elif any(entry[:3]):
+            color_pages += 1
+
+    print("PDF stats:\n=====================")
+    print("Blank pages: {:>4}".format(blank_pages))
+    print("Color pages: {:>4}".format(color_pages))
+    print("Total pages: {:>4}".format(len(coverage)))
+    print("")
+
+
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: {} <filename.pdf>".format(os.path.split(__file__)[-1]))
+        sys.exit(1)
+
+    fname = sys.argv[1]
+    try:
+        coverage = get_ink_coverage(fname)
+        show_stat(coverage)
+    except NotImplementedError as exc:
+        print(exc)
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
