@@ -1,4 +1,5 @@
 - hosts: all
+  connection: local
   user: root
   vars:
     apt_keys_desktop:

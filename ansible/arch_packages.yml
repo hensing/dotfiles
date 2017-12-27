@@ -1,0 +1,71 @@
+- hosts: all
+  connection: local
+  user: root
+  vars:
+    packages_base:
+      - {name: ansible}
+      - {name: aspell-de}
+      - {name: fsarchiver}
+      - {name: git}
+      - {name: iotop}
+      - {name: iperf3}
+      - {name: neovim, state: latest}
+      - {name: openvpn}
+      - {name: parallel}
+      - {name: rsync}
+      - {name: smartmontools}
+      - {name: subversion}
+      - {name: tig}
+      - {name: tmux}
+      - {name: tree}
+      - {name: unrar}
+      - {name: whois}
+      - {name: zsh}
+
+    packages_desktop:
+      - {name: biber}
+      - {name: conky-i3}
+      - {name: dmenu-manjaro}
+      - {name: feh}
+      - {name: i3-gaps}
+      - {name: i3lock}
+      - {name: i3status-manjaro}
+      - {name: keepassx2}
+      - {name: keychain}
+      - {name: owncloud-client}
+      - {name: pidgin-otr}
+      - {name: pidgin}
+      - {name: texlive-langextra}
+      - {name: texlive-langgreek}
+      - {name: texlive-most}
+      - {name: xautolock}
+      - {name: yubikey-personalization-gui}
+
+    packages_programming:
+      - {name: asciidoc}
+      - {name: autoconf}
+      - {name: clang}
+      - {name: cmake}
+      - {name: cython}
+      - {name: docker-compose}
+      - {name: docker}
+      - {name: flake8, state: latest}
+      - {name: pandoc}
+      - {name: python-pylint, state: latest}
+      - {name: python-virtualenvwrapper, state: latest}
+
+  tasks:
+    - name: update package database
+      pacman: update_cache=yes
+        upgrade=yes
+
+    - name: install base packages
+      pacman: name="{{item.name}}"
+        state="{{item.state|default('present')}}"
+      with_items: "{{ packages_base }}"
+
+    - name: install workstation packages
+      pacman: name="{{item.name}}"
+        state="{{item.state|default('present')}}"
+      with_items: "{{ packages_desktop + packages_programming }}"
+      when: inventory_hostname in groups['workstations']
