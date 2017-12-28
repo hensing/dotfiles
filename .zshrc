@@ -58,11 +58,7 @@ setopt nobeep               # no beeping, honking, whistling...
 # }}}
 
 
-if [[ $OSTYPE == linux* ]]; then
-    PATH="$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin:/usr/games:$HOME/miniconda3/bin:$HOME/miniconda2/bin"
-else
-    PATH="$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin:$HOME/miniconda3/bin:$HOME/miniconda2/bin"
-fi
+PATH="$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/opt/local/bin:/opt/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin:/usr/bin/vendor_perl:/usr/games:$HOME/miniconda3/bin:$HOME/miniconda2/bin"
 
 # alias {{{
 # pass sudo to alias
