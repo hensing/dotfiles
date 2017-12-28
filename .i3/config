@@ -227,8 +227,8 @@ assign [instance="Steam"        ] → 5
 #bindsym $mod+c scratchpad show
 
 # bind shift + volume to next/prev song
-bindsym Shift+XF86AudioRaiseVolume exec dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Next
-bindsym Shift+XF86AudioLowerVolume exec dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Previous
+#bindsym Shift+XF86AudioRaiseVolume exec dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Next
+#bindsym Shift+XF86AudioLowerVolume exec dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Previous
 
 
 # Pulse Audio controls
@@ -237,8 +237,8 @@ bindsym Shift+XF86AudioLowerVolume exec dbus-send --print-reply --dest=org.mpris
 #bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute 0 toggle # mute sound
 
 # Sreen brightness controls
-bindsym XF86MonBrightnessUp   exec xbacklight -inc 20 # increase screen brightness
-bindsym XF86MonBrightnessDown exec xbacklight -dec 20 # decrease screen brightness
+#bindsym XF86MonBrightnessUp   exec xbacklight -inc 20 # increase screen brightness
+#bindsym XF86MonBrightnessDown exec xbacklight -dec 20 # decrease screen brightness
 
 # Touchpad controls
 bindsym XF86TouchpadToggle exec ~/bin/toggletouchpad.sh # toggle touchpad
@@ -264,12 +264,14 @@ bar {
 }
 
 # autostart:
-exec mate-settings-daemon
-exec mate-screensaver
-exec nm-applet
-#exec gnome-sound-applet
-exec pasystray || mate-volume-control-applet
-exec mate-polkit
+exec --no-startup-id mate-settings-daemon || xfsettingsd --sm-client-disable &
+exec --no-startup-id mate-screensaver
+exec --no-startup-id nm-applet
+exec --no-startup-id blueman-applet &
+exec --no-startup-id xfce4-power-manager &
+exec --no-startup-id gnome-sound-applet || xfce4-volumed-pulse &
+exec --no-startup-id pasystray || mate-volume-control-applet
+exec --no-startup-id mate-polkit || /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
 
 # set desktop wallpaper using feh
 exec_always --no-startup-id feh --bg-scale ~/Pictures/current
@@ -277,7 +279,7 @@ exec_always --no-startup-id feh --bg-scale ~/Pictures/current
 ## Lock screen, start time for automatic screen lock
 #bindsym $mod+Ctrl+L exec i3lock -i ~/Pictures/lockscreen.png
 #exec_always xautolock -time 10 -locker 'i3lock -i ~/Pictures/lockscreen.png'
-bind $mod+Ctrl+46 exec mate-screensaver-command -l
+bind $mod+Ctrl+46 exec mate-screensaver-command -l || xflock4
 
 # Startup programs
 exec dropbox start
