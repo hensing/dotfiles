@@ -207,6 +207,7 @@ assign [class="Pidgin"          ] → 9
 assign [class="Skype"           ] → 9
 assign [class="Firefox"         ] → 8
 assign [class="Google-chrome"   ] → 8
+assign [class="Chromium"        ] → 8
 assign [instance="Navigator"    ] → 8
 assign [instance="browser"      ] → 8
 assign [instance="Mail"         ] → 7
