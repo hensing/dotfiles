@@ -145,7 +145,6 @@ if (( $+commands[docker] )) ; then
     alias dcb='docker-compose build'
     alias dcu='docker-compose up'
     alias dcd='docker-compose down'
-    alias killvis='docker rm -f `docker ps --filter label=fg_component_type=visualization -q`'
 fi
 
 # git alias
@@ -611,3 +610,83 @@ export LS_COLORS
 	#eval "$(ntfy shell-integration -s zsh -L 300 -f)"
 	#export AUTO_NTFY_DONE_IGNORE="vim screen tmux ipython in inp ssh pm-suspend"
 #fi
+
+### Docker volumes backup and restore
+#
+# Function to export a Docker Volume to a .tar file
+# Usage: docker_volume_export <volume_name> <target_tar_path>
+function docker_volume_export {
+  set -e # Exit immediately if a command exits with a non-zero status
+  local volume_name="$1"
+  local target_tar_path="$2"
+
+  if [[ -z "$volume_name" || -z "$target_tar_path" ]]; then
+    print "Usage: docker_volume_export <volume_name> <target_tar_path>"
+    return 1
+  fi
+
+  print "📦 Exporting Docker Volume '$volume_name' to '$target_tar_path'..."
+
+  # Optional: Check if the volume exists (docker run will fail anyway)
+  # if ! sudo docker volume inspect "$volume_name" > /dev/null 2>&1; then
+  #   print "❌ Error: Volume '$volume_name' does not exist."
+  #   return 1
+  # fi
+
+  # Ensure the target directory exists
+  local target_dir="$(dirname "$target_tar_path")"
+  if [[ ! -d "$target_dir" ]]; then
+      print "📁 Creating target directory '$target_dir'..."
+      mkdir -p "$target_dir"
+  fi
+
+  # Start a temporary container and archive the volume to tar
+  # Using alpine as it's small and includes tar
+  if sudo docker run --rm -v "$volume_name":/volume_data alpine tar -cvf - /volume_data > "$target_tar_path"; then
+    print "✅ Export successful."
+    return 0
+  else
+    print "❌ Export failed."
+    return 1
+  fi
+}
+
+# Function to import a .tar file into a Docker Volume
+# Usage: docker_volume_import <source_tar_path> <target_volume_name>
+function docker_volume_import {
+  set -e # Exit immediately if a command exits with a non-zero status
+  local source_tar_path="$1"
+  local target_volume_name="$2"
+
+  if [[ -z "$source_tar_path" || -z "$target_volume_name" ]]; then
+    print "Usage: docker_volume_import <source_tar_path> <target_volume_name>"
+    return 1
+  fi
+
+  if [[ ! -f "$source_tar_path" ]]; then
+    print "❌ Error: Source tar file '$source_tar_path' not found."
+    return 1
+  fi
+
+  print "📦 Importing '$source_tar_path' into Docker Volume '$target_volume_name'..."
+
+  # Check if the target volume exists. If not, create it.
+  if ! sudo docker volume inspect "$target_volume_name" > /dev/null 2>&1; then
+    print "ℹ️ Volume '$target_volume_name' not found, creating it..."
+    if ! sudo docker volume create "$target_volume_name"; then
+        print "❌ Error creating volume '$target_volume_name'."
+        return 1
+    fi
+  fi
+
+  # Start a temporary container, mount the volume, and extract the tar
+  # The tar file content is piped to the container's stdin
+  # Using alpine as it's small and includes tar
+  if cat "$source_tar_path" | sudo docker run --rm -i -v "$target_volume_name":/volume_data alpine tar -xvf - -C /volume_data; then
+     print "✅ Import successful."
+     return 0
+  else
+     print "❌ Import failed."
+     return 1
+  fi
+}
