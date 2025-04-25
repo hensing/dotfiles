@@ -690,3 +690,48 @@ function docker_volume_import {
      return 1
   fi
 }
+
+# Function to migrate data from a host directory (bind mount source) to a Docker Volume
+# Usage: docker_bind_to_volume <source_host_directory> <target_volume_name>
+function docker_bind_to_volume {
+  set -e # Exit immediately if a command exits with a non-zero status
+  local source_host_dir="$1"
+  local target_volume_name="$2"
+
+  if [[ -z "$source_host_dir" || -z "$target_volume_name" ]]; then
+    print "Usage: docker_bind_to_volume <source_host_directory> <target_volume_name>"
+    return 1
+  fi
+
+  if [[ ! -d "$source_host_dir" ]]; then
+    print "❌ Error: Source host directory '$source_host_dir' not found or is not a directory."
+    return 1
+  fi
+
+  print "📦 Migrating data from host directory '$source_host_dir' to Docker Volume '$target_volume_name' using rsync..."
+
+  # Check if the target volume exists. If not, create it.
+  if ! sudo docker volume inspect "$target_volume_name" > /dev/null 2>&1; then
+    print "ℹ️ Volume '$target_volume_name' not found, creating it..."
+    if ! sudo docker volume create "$target_volume_name"; then
+        print "❌ Error creating volume '$target_volume_name'."
+        return 1
+    fi
+  fi
+
+  # Start a temporary container, mount the source directory and the target volume, and copy data using rsync
+  # Using ubuntu as it includes rsync by default
+  print "⏳ Copying data with rsync... This may take a while for large directories."
+  # rsync requires source and destination paths. -a is for archive mode (permissions, recursive etc.)
+  # A trailing slash on the source (/src_data/) copies the *contents*
+  if sudo docker run --rm \
+     -v "$source_host_dir":/src_data \
+     -v "$target_volume_name":/dest_data \
+     ubuntu bash -c "rsync -a /src_data/ /dest_data/ && sync" > /dev/null; then # Use rsync -avz for verbose, archive, compress
+    print "✅ Migration successful."
+    return 0
+  else
+    print "❌ Migration failed during rsync copy."
+    return 1
+  fi
+}
