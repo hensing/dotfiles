@@ -133,6 +133,7 @@ fi
 # docker alias
 if (( $+commands[docker] )) ; then
     alias ds='docker ps'
+    alias de='docker exec -it'
     alias dl='docker logs'
     alias di='docker inspect'
     alias dS='docker stats'
@@ -141,10 +142,11 @@ if (( $+commands[docker] )) ; then
     alias drmf='docker rm -f `docker ps -q -a`'
     alias dI='docker images'
     alias drmi='docker rmi `docker images -q`'
-    alias dco='docker-compose'
-    alias dcb='docker-compose build'
-    alias dcu='docker-compose up'
-    alias dcd='docker-compose down'
+    alias dco='docker compose'
+    alias dcp='docker compose pull'
+    alias dcb='docker compose build'
+    alias dcu='docker compose up'
+    alias dcd='docker compose down'
 fi
 
 # git alias
