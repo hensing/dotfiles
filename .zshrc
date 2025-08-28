@@ -70,17 +70,16 @@ if [[ $OSTYPE == linux* ]]; then
     alias la='/bin/ls -Ahl --color'
     alias l.='/bin/ls -Ahld --color .*'
     alias l='/bin/ls -hl --color'
-    alias ak='sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys'
     if (( $+commands[aptitude] )); then
         alias as='aptitude search'
         alias aS='aptitude show'
         alias ai='sudo aptitude install'
-        alias auu='aku; sudo aptitude update; sudo aptitude upgrade; sudo apt-get autoremove -y'
+        alias auu='sudo aptitude update; sudo aptitude upgrade; sudo apt-get autoremove -y'
     else
         alias as='apt-cache search'
         alias aS='apt-cache show'
         alias ai='sudo apt-get install'
-        alias auu='aku; sudo apt-get update; sudo apt-get upgrade; sudo apt-get autoremove -y'
+        alias auu='sudo apt-get update; sudo apt-get upgrade; sudo apt-get autoremove -y'
     fi
 else
     alias ls='/bin/ls -G'
@@ -372,15 +371,27 @@ fi
 run-with-sudo() { LBUFFER="sudo $LBUFFER" }
 zle -N run-with-sudo
 
-# update all expired keys
-  aku () {
-	  # get expired keys
-	  for key in `apt-key list |grep expired|cut -d ' ' -f 4|cut -d '/' -f 2`;
-	  do
-		  # update
-		  sudo apt-key adv --keyserver keys.gnupg.net --recv-keys $key
-	  done
-  }
+# get GPP keys for apt
+function get_apt_key() {
+  if [ -z "$1" ] || [ -z "$2" ]; then
+    echo "Usage: get_apt_key <key-id> <repo-name>"
+    return 1
+  fi
+
+  local KEY_ID="$1"
+  local REPO_NAME="$2"
+  local KEY_PATH="/usr/share/keyrings/${REPO_NAME}.gpg"
+
+  echo "Fetching key ${KEY_ID} for ${REPO_NAME}..."
+  sudo gpg --no-default-keyring --keyring "${KEY_PATH}" --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "${KEY_ID}"
+
+  if [ $? -eq 0 ]; then
+    echo "Key successfully imported to ${KEY_PATH}."
+  else
+    echo "Error: Failed to import key."
+    return 1
+  fi
+}
 
 
 # Usage: extract <file>
