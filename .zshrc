@@ -748,3 +748,53 @@ function docker_bind_to_volume {
     return 1
   fi
 }
+
+# check which docker-container is running as root and check for docker.sock mount
+function docker_check_root {
+  echo "--- Docker Container Security Check ---"
+
+  # Ensure Zsh splits container IDs correctly by newline
+  for container_id in $(docker ps -q); do
+    # Get the container name, removing the leading slash
+    container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/\///')
+
+    # Initialize status: Assume safe (✅) by default
+    STATUS_ICON="✅"
+
+    # --- 1. CHECK: User ID (UID) ---
+    # Attempt to get the UID and the full 'id' string for PID 1
+    container_uid=$(docker exec "$container_id" id -u 2>/dev/null)
+    container_id_full=$(docker exec "$container_id" id 2>/dev/null)
+
+    # --- 2. CHECK: Docker Socket Mount ---
+    # Check if the host's /var/run/docker.sock is bind-mounted inside the container
+    DOCKER_SOCK_MOUNTED=
+    if docker inspect "$container_id" --format '{{json .Mounts}}' | grep -q '/var/run/docker.sock'; then
+      # Security risk found: set warning icon and descriptive text
+      STATUS_ICON="⚠️" 
+      DOCKER_SOCK_MOUNTED=" ⚠️ DOCKER_SOCK MOUNTED!"
+    fi
+
+    # --- OUTPUT GENERATION ---
+    # Check if the 'id' tool was available
+    if [ -z "$container_uid" ]; then
+        # Cannot determine safety: use warning icon
+        STATUS_ICON="⚠️" 
+        echo "$STATUS_ICON Container $container_name ($container_id) runs as: UNDETERMINED (id tool missing)$DOCKER_SOCK_MOUNTED"
+        continue
+    fi
+
+    # Evaluate the UID (0 = Root)
+    if [ "$container_uid" = "0" ]; then
+      # Root found: set warning icon
+      STATUS_ICON="⚠️" 
+      # Output the full root status
+      echo "$STATUS_ICON Container $container_name ($container_id) runs as: ROOT (UID 0)!$DOCKER_SOCK_MOUNTED"
+    else
+      # Non-root user, status is already set to ✅ unless DOCKER_SOCK was found.
+      # Output the full id string (e.g., uid=1000(app) gid=1000(app) groups=1000(app))
+      echo "$STATUS_ICON Container $container_name ($container_id) runs as: $container_id_full$DOCKER_SOCK_MOUNTED"
+    fi
+  done
+  echo "--- End of Check ---"
+}
