@@ -33,6 +33,8 @@ ansible:
 	sudo ssh-copy-id root@$(HOSTNAME)
 	ansible-playbook -i ansible/hosts.ini ansible/apt_packages.yml -l $(HOSTNAME)
 
+wsl: tiny
+	git config --global credential.helper "/mnt/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe"
 
 clean:
 	echo "removing dead links"
