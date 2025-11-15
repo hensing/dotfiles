@@ -662,7 +662,7 @@ function docker_volume_export {
 
   # Start a temporary container and archive the volume to tar
   # Using alpine as it's small and includes tar
-  if sudo docker run --rm -v "$volume_name":/volume_data alpine tar -cvf - /volume_data > "$target_tar_path"; then
+  if sudo docker run --rm -v "$volume_name":/volume_data alpine tar -cvf - -C /volume_data . > "$target_tar_path"; then
     print "✅ Export successful."
     return 0
   else
@@ -674,7 +674,7 @@ function docker_volume_export {
 # Function to import a .tar file into a Docker Volume
 # Usage: docker_volume_import <source_tar_path> <target_volume_name>
 function docker_volume_import {
-  set -e # Exit immediately if a command exits with a non-zero status
+  #set -e # Exit immediately if a command exits with a non-zero status
   local source_tar_path="$1"
   local target_volume_name="$2"
 
@@ -714,7 +714,7 @@ function docker_volume_import {
 # Function to migrate data from a host directory (bind mount source) to a Docker Volume
 # Usage: docker_bind_to_volume <source_host_directory> <target_volume_name>
 function docker_bind_to_volume {
-  set -e # Exit immediately if a command exits with a non-zero status
+  #set -e # Exit immediately if a command exits with a non-zero status
   local source_host_dir="$1"
   local target_volume_name="$2"
 
