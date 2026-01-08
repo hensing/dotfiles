@@ -823,3 +823,79 @@ docker_check_root () {
     done
     echo "--- End of Check ---"
 }
+
+function update_stacks() {
+    # Default variables
+    local stacks_dir="/opt/stacks"
+    local dockge_dir="/opt/dockge"
+    local run_prune=false
+    local force_recreate_flag=""
+
+    # Parse arguments
+    for arg in "$@"; do
+        case $arg in
+            --prune)
+                run_prune=true
+                ;;
+            --force-recreate)
+                echo "⚠️  Force recreate enabled. Containers will restart regardless of updates."
+                force_recreate_flag="--force-recreate"
+                ;;
+            /*)
+                # If argument starts with / and is a directory, use it as target overrides
+                if [[ -d "$arg" ]]; then
+                    stacks_dir="$arg"
+                fi
+                ;;
+        esac
+    done
+
+    echo "🚀 Starting update check for stacks in: $stacks_dir"
+    echo "---------------------------------------------------"
+
+    # 1. Update the Stacks in the target directory
+    # zsh modifier *(/) ensures we only loop through directories
+    for stack in "$stacks_dir"/*(/); do
+        # Check for compose files
+        if [[ -f "$stack/compose.yaml" || -f "$stack/docker-compose.yml" ]]; then
+            echo "📂 Processing: $(basename "$stack")"
+
+            (
+                cd "$stack" || return
+
+                # Pull new images
+                docker compose pull
+
+                # Update container
+                # If $force_recreate_flag is empty, it acts as a smart update (only restart on changes).
+                # If set, it forces recreation.
+                docker compose up -d $force_recreate_flag
+            )
+            echo "---------------------------------------------------"
+        fi
+    done
+
+    # 2. Explicitly update Dockge itself
+    if [[ -d "$dockge_dir" ]]; then
+        echo "🦎 Updating Dockge Management Container ($dockge_dir)..."
+        (
+            cd "$dockge_dir" || return
+            docker compose pull
+            docker compose up -d $force_recreate_flag
+        )
+        echo "---------------------------------------------------"
+    else
+        echo "⚠️  Path /opt/dockge not found. Skipping Dockge self-update."
+        echo "---------------------------------------------------"
+    fi
+
+    # 3. Optional: Prune unused images
+    if [[ "$run_prune" == true ]]; then
+        echo "🧹 Pruning unused images (--prune flag detected)..."
+        docker image prune -af
+    else
+        echo "ℹ️  Skipping prune. Use --prune to clean up unused images."
+    fi
+
+    echo "✅ All operations completed."
+}
