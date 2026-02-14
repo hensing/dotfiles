@@ -899,3 +899,15 @@ function update_stacks() {
 
     echo "✅ All operations completed."
 }
+
+# --- Borgmatic Wrapper with Auto-Secrets (ZSH Version) ---
+borgmatic() {
+    # Run in a sub-shell (...) so the secrets don't persist in your current session.
+    (
+        setopt allexport                  # Automatically export all variables defined in source
+        source /etc/borgmatic.d/.secrets  # Load the centralized secrets file
+        unsetopt allexport                # Stop auto-exporting (clean up)
+
+        /usr/bin/borgmatic "$@"           # Execute the actual binary with your arguments
+    )
+}

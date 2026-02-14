@@ -1,0 +1,87 @@
+# ---------------------------------------------------------------------
+# BORGMATIC CONFIGURATION: SYSTEM & INFRASTRUCTURE
+# ---------------------------------------------------------------------
+# Scope:     OS configs, Docker Stacks, Administrative Scripts, Inventory
+# Target:    Hetzner Storagebox (Borg 1.4)
+# Requires:  Environment variables defined in /etc/borgmatic.d/.secrets
+#            - BORG_PASSPHRASE
+#            - KUMA_URL_SYSTEM
+# ---------------------------------------------------------------------
+
+# --- GLOBAL SETTINGS ---
+
+# Force usage of Borg 1.4 binary on remote side (Performance/Security features)
+remote_path: borg-1.4
+
+# Compression and Encryption settings
+# Note: Passphrase is injected via environment variable for Git safety
+compression: auto,zstd
+encryption_passphrase: "${BORG_PASSPHRASE}"
+
+# --- SOURCE DIRECTORIES ---
+#
+source_directories:
+    - /opt/dockge             # Dockge management tool data
+    - /opt/stacks             # Docker Compose files, .env files, and persistent data
+    - /usr/local/bin          # Custom administrative scripts and binaries
+    - /etc                    # Global configs (SSH, UFW, Crowdsec, Netbird, Systemd)
+    - /root                   # Root home (SSH keys, history, generated inventory lists)
+    - /var/lib/crowdsec/data  # CrowdSec internal database (decisions/bans)
+    - /var/spool/cron         # User crontabs
+
+# --- REPOSITORIES ---
+#
+repositories:
+    - path: ssh://storagebox/./system
+      label: system-repo
+
+# --- EXCLUDES ---
+#
+exclude_patterns:
+    - /var/lib/docker         # Exclude Docker engine internals (images/containers are ephemeral)
+    - /var/log                # Exclude system logs
+    - /var/cache              # Exclude package manager caches
+    - /root/.cache            # Exclude root user cache
+    - '*.pyc'                 # Exclude compiled Python bytecode
+    - '~*'
+    - /etc/udev               # Exclude hardware-specific configs (issues during restore)
+    - /etc/fstab              # Exclude filesystem table (UUIDs differ on new hardware)
+
+# --- RETENTION POLICY ---
+#
+keep_daily: 7
+keep_weekly: 4
+keep_monthly: 12
+
+# --- LIFECYCLE HOOKS ---
+# Note: Using top-level keys to avoid Borgmatic 1.9+ deprecation warnings.
+
+# 1. PRE-BACKUP: System Inventory & Metadata Export
+before_backup:
+    - echo "Starting System Backup & Inventory Generation..."
+
+    # Export list of manually installed APT packages for easy re-installation
+    - apt-mark showmanual > /root/apt-manual-packages.list
+
+    # Export exact package selection states for 1:1 system restoration
+    - dpkg --get-selections > /root/dpkg-selections.list
+
+    # Export configurations of manually created Docker networks (non-compose)
+    # This loop skips default networks (bridge/host/none) and saves the inspect JSON.
+    - |
+      docker network ls --format '{{.Name}}' | grep -vE '^(bridge|host|none)$' | while read net; do 
+        docker network inspect $net > /root/docker-network-$net.json
+      done
+
+# 2. POST-BACKUP (SUCCESS): Notify Monitoring
+after_backup:
+    - echo "Backup completed successfully."
+    # Push status 'up' to Uptime Kuma
+    - curl -fsS -m 10 --retry 3 "${KUMA_URL_SYSTEM}?status=up&msg=OK&ping=" > /dev/null
+
+# 3. ON ERROR (FAILURE): Alert Monitoring
+on_error:
+    - echo "CRITICAL - Backup failed!"
+    # Push status 'down' to Uptime Kuma to trigger alerts
+    - curl -fsS -m 10 --retry 3 "${KUMA_URL_SYSTEM}?status=down&msg=System-Backup-Failed&ping=" > /dev/null
+
