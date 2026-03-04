@@ -819,30 +819,47 @@ docker_check_root () {
             echo "$HOST_ROOT_PIDS" | sed 's/^/      * /'
         fi
 
-        echo
     done
     echo "--- End of Check ---"
 }
 
 function update_stacks() {
-    # Default variables
+    # ------------------------------------------------------------------
+    # Docker Stack Update Utility
+    #
+    # Loops through subdirectories in a target folder, pulls latest images,
+    # and recreates containers using Docker Compose.
+    #
+    # Features:
+    # - Live output via 'tee' (preserves colors and progress bars)
+    # - Smart detection of container changes ("Recreated", "Started")
+    # - Triggers Nginx Proxy Manager reload only if changes occurred
+    # ------------------------------------------------------------------
+
+    # Configuration
     local stacks_dir="/opt/stacks"
     local dockge_dir="/opt/dockge"
     local run_prune=false
     local force_recreate_flag=""
 
-    # Parse arguments
+    # State tracking
+    local updates_occurred=false
+
+    # Use a temporary file to capture logs while still showing them live
+    local log_file=$(mktemp)
+
+    # Argument parsing
     for arg in "$@"; do
         case $arg in
             --prune)
                 run_prune=true
                 ;;
             --force-recreate)
-                echo "⚠️  Force recreate enabled. Containers will restart regardless of updates."
+                echo "⚠️  Force recreate enabled. All containers will restart."
                 force_recreate_flag="--force-recreate"
+                updates_occurred=true
                 ;;
             /*)
-                # If argument starts with / and is a directory, use it as target overrides
                 if [[ -d "$arg" ]]; then
                     stacks_dir="$arg"
                 fi
@@ -853,48 +870,78 @@ function update_stacks() {
     echo "🚀 Starting update check for stacks in: $stacks_dir"
     echo "---------------------------------------------------"
 
-    # 1. Update the Stacks in the target directory
-    # zsh modifier *(/) ensures we only loop through directories
+    # 1. Update Stacks
     for stack in "$stacks_dir"/*(/); do
-        # Check for compose files
         if [[ -f "$stack/compose.yaml" || -f "$stack/docker-compose.yml" ]]; then
             echo "📂 Processing: $(basename "$stack")"
 
-            (
-                cd "$stack" || return
+            pushd -q "$stack" || continue
 
-                # Pull new images
-                docker compose pull
+            # Pull images first
+            docker compose pull
 
-                # Update container
-                # If $force_recreate_flag is empty, it acts as a smart update (only restart on changes).
-                # If set, it forces recreation.
-                docker compose up -d $force_recreate_flag
-            )
+            # Run 'up', pipe output to console AND temp file.
+            # 2>&1 ensures errors are captured too.
+            docker compose up -d $force_recreate_flag 2>&1 | tee "$log_file"
+
+            # Check the log file for keywords
+            if grep -qE "(Recreated|Started|Created)" "$log_file"; then
+                updates_occurred=true
+            fi
+
+            popd -q
             echo "---------------------------------------------------"
         fi
     done
 
-    # 2. Explicitly update Dockge itself
+    # 2. Update Dockge
     if [[ -d "$dockge_dir" ]]; then
-        echo "🦎 Updating Dockge Management Container ($dockge_dir)..."
-        (
-            cd "$dockge_dir" || return
-            docker compose pull
-            docker compose up -d $force_recreate_flag
-        )
+        echo "🦎 Updating Dockge Management ($dockge_dir)..."
+        pushd -q "$dockge_dir" || return
+
+        docker compose pull
+
+        # Live output + capture
+        docker compose up -d $force_recreate_flag 2>&1 | tee "$log_file"
+
+        if grep -qE "(Recreated|Started|Created)" "$log_file"; then
+             updates_occurred=true
+        fi
+
+        popd -q
         echo "---------------------------------------------------"
     else
         echo "⚠️  Path /opt/dockge not found. Skipping Dockge self-update."
         echo "---------------------------------------------------"
     fi
 
-    # 3. Optional: Prune unused images
-    if [[ "$run_prune" == true ]]; then
-        echo "🧹 Pruning unused images (--prune flag detected)..."
-        docker image prune -af
+    # Clean up the temporary file
+    rm -f "$log_file"
+
+    # 3. Nginx Proxy Manager Reload
+    if [[ "$updates_occurred" == true ]]; then
+        echo "🔄 Updates detected. Reloading Nginx Proxy Manager..."
+
+        if docker ps --format '{{.Names}}' | grep -q "^npm-proxy$"; then
+            # Reload Nginx configuration without dropping connections
+            if docker exec npm-proxy nginx -s reload; then
+                echo "✅ Nginx reloaded successfully."
+            else
+                echo "❌ Failed to reload Nginx. Please check container logs."
+            fi
+        else
+            echo "⚠️  Container 'npm-proxy' is not running. Reload skipped."
+        fi
+        echo "---------------------------------------------------"
     else
-        echo "ℹ️  Skipping prune. Use --prune to clean up unused images."
+        echo "💤 No updates detected. Nginx reload skipped."
+        echo "---------------------------------------------------"
+    fi
+
+    # 4. Prune
+    if [[ "$run_prune" == true ]]; then
+        echo "🧹 Pruning unused images..."
+        docker image prune -af
     fi
 
     echo "✅ All operations completed."
