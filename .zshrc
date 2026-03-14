@@ -74,12 +74,12 @@ if [[ $OSTYPE == linux* ]]; then
         alias as='aptitude search'
         alias aS='aptitude show'
         alias ai='sudo aptitude install'
-        alias auu='sudo aptitude update; sudo aptitude upgrade; sudo apt-get autoremove -y'
+        alias auu='sudo aptitude update; sudo aptitude upgrade; sudo apt autoremove -y'
     else
         alias as='apt-cache search'
         alias aS='apt-cache show'
-        alias ai='sudo apt-get install'
-        alias auu='sudo apt-get update; sudo apt-get upgrade; sudo apt-get autoremove -y'
+        alias ai='sudo apt install'
+        alias auu='sudo apt update; sudo apt upgrade; sudo apt autoremove -y'
     fi
 else
     alias ls='/bin/ls -G'
@@ -872,7 +872,7 @@ function update_stacks() {
 
     # 1. Update Stacks
     for stack in "$stacks_dir"/*(/); do
-        if [[ -f "$stack/compose.yaml" || -f "$stack/docker-compose.yml" ]]; then
+        if [[ -f "$stack/compose.yaml" ||-f "$stack/compose.yml" || -f "$stack/docker-compose.yml" ]]; then
             echo "📂 Processing: $(basename "$stack")"
 
             pushd -q "$stack" || continue
