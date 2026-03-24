@@ -6,6 +6,7 @@ HISTSIZE=100000
 DIRSTACKSIZE=10
 
 fpath=(~/.zsh/completions $fpath)
+fpath=(~/.zsh/functions $fpath)
 
 export EDITOR=vim
 export PAGER=less
@@ -32,6 +33,7 @@ autoload zmv
 autoload regex
 autoload -U compinit && compinit
 autoload -U keeper && keeper
+autoload -Uz merge_gpx
 
 #setopt auto_cd              # change to dir without using cd
 setopt auto_pushd           # push old dir on dir stack
@@ -958,3 +960,4 @@ borgmatic() {
         /usr/bin/borgmatic "$@"           # Execute the actual binary with your arguments
     )
 }
+

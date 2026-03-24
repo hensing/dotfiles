@@ -1,0 +1,107 @@
+# Function to merge GPX files for geotagging.
+# Logic:
+#   1. Filters inputs for .gpx/.GPX files.
+#   2. Packs internal segments of each file into one (cleaning up drops).
+#   3. Merges files into one track, keeping them as separate segments (days/activities).
+#   4. Simplifies with 5m precision.
+#
+# Usage: merge_gpx [-t "Title"] <output.gpx> <input_files_or_glob> [optional_title]
+merge_gpx() {
+  # Ensure extended globbing is active for case-insensitive matching (#i)
+  setopt local_options EXTENDED_GLOB
+
+  local title="Merged Geotagging Route"
+  local -a potential_files
+  local -a babel_merge_args
+  local output_file=""
+  local opts
+  local tmp_dir
+
+  # 1. Parse optional -t flag for the track title
+  zparseopts -D -E t:=opts
+  if [[ -n "$opts" ]]; then
+    title="${opts[2]}"
+  fi
+
+  # 2. Argument Validation
+  if [[ $# -lt 2 ]]; then
+    echo "Usage: merge_gpx [-t \"Title\"] <output.gpx> <input_glob_or_files> [title]"
+    echo "Example: merge_gpx -t \"Peru 2025\" peru.gpx activity_2025_07*"
+    return 1
+  fi
+
+  output_file="$1"
+  shift
+
+  # Determine if the last argument is a title string or a file
+  local last_arg="${@[-1]}"
+  if [[ ! -f "$last_arg" && "$opts" == "" ]]; then
+    title="$last_arg"
+    potential_files=("${@[1,-2]}")
+  else
+    potential_files=("$@")
+  fi
+
+  # 3. Setup temporary workspace (auto-cleaned on exit)
+  tmp_dir=$(mktemp -d -t gpx_merge_XXXXXX)
+  trap "rm -rf '$tmp_dir'" EXIT INT TERM
+
+  local total_input_points=0
+  local -a filtered_input_files
+
+  # 4. First Pass: Filter for GPX files and pack segments
+  local i=1
+  for f in "${potential_files[@]}"; do
+    # Only process if it's a file, ends in .gpx (case-insensitive), 
+    # and is NOT the output file itself
+    if [[ -f "$f" && "$f" == *.(#i)gpx && "$f" != "$output_file" ]]; then
+      filtered_input_files+=("$f")
+      
+      # Count points for statistics
+      local count=$(grep -c "<trkpt" "$f")
+      total_input_points=$((total_input_points + count))
+
+      # Pre-process: Pack internal segments of this specific file
+      local tmp_out="$tmp_dir/part_${i}.gpx"
+      gpsbabel -t -i gpx -f "$f" -x track,pack -o gpx -F "$tmp_out"
+      
+      babel_merge_args+=("-f" "$tmp_out")
+      ((i++))
+    fi
+  done
+
+  if [[ ${#babel_merge_args} -eq 0 ]]; then
+    echo "Error: No valid .gpx input files found."
+    return 1
+  fi
+
+  echo "Merging ${#filtered_input_files} GPX files into '$output_file'..."
+
+  # 5. Second Pass: Final Merge and 5m Simplification
+  # Note: No 'pack' here, so segments from Phase 1 remain separate.
+  gpsbabel -t -i gpx "${babel_merge_args[@]}" \
+    -x track,merge,title="$title" \
+    -x simplify,crosstrack,error=5m \
+    -o gpx -F "$output_file"
+
+  # 6. Success Output and Statistics
+  if [[ $? -eq 0 ]]; then
+    local total_output_points=$(grep -c "<trkpt" "$output_file")
+    
+    echo "--------------------------------------------------------"
+    echo "Geotagging-ready GPX created successfully."
+    echo "Output:       $output_file"
+    echo "Track Title:  $title"
+    echo "Activities:   ${#filtered_input_files} segments preserved"
+    echo "Points:       $total_input_points (raw) -> $total_output_points (optimized)"
+    
+    if [[ $total_input_points -gt 0 ]]; then
+      local percent=$(( 100 * total_output_points / total_input_points ))
+      echo "Data:         Kept ${percent}% of points (5m tolerance)"
+    fi
+    echo "--------------------------------------------------------"
+  else
+    echo "Error: GPSBabel failed during the merge step."
+    return 1
+  fi
+}
