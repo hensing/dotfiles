@@ -54,28 +54,14 @@ inoremap <buffer> <silent> <Down> <C-o>gj
 inoremap <buffer> <silent> <Home> <C-o>g<Home>
 inoremap <buffer> <silent> <End>  <C-o>g<End>
 
-" latexbox:
+" vimtex keybindings
 imap <buffer> [[     \begin{
-imap <buffer> ]]     <Plug>LatexCloseCurEnv
-nmap <buffer> <F5>   <Plug>LatexChangeEnv
-vmap <buffer> <F7>   <Plug>LatexWrapSelection
-vmap <buffer> <S-F7> <Plug>LatexEnvWrapSelection
 imap <buffer> ((     \eqref{
-" don't jump to quickfix when error occurs
-let g:LatexBox_quickfix = 2
+nmap <buffer> <F5>   <Plug>(vimtex-env-change)
+vmap <buffer> <S-F7> <Plug>(vimtex-env-surround-visual)
 
-" compile async an background
-let g:LatexBox_latexmk_async = 1
-
-"" add triggers to YCM for LaTeX-Box autocompletion
-"let g:ycm_semantic_triggers = {
-"\  'tex'  : ['{'],
-"\ }
-" trigger vimcompletsme
-let g:vcm_omni_pattern = '\k\+\(\.\|{\)\k*$'
+" don't jump to quickfix when error occurs (configured in lua/plugins/latex.lua)
+" vimtex is async by default, no extra config needed
 
 " remove trailing whitespace on writing buffer
 autocmd BufWritePre * :%s/\s\+$//e
-
-" match \(chp|eq|fig|page|sec|tab|app|)ref\(chp|eq|fig|page|sec|tab|app|){
-let g:LatexBox_ref_pattern = '\m\C\\v\?\(chp\|eq\|fig\|page\|sec\|tab\|app\|[cC]\)\?ref\?\(chp\|eq\|fig\|page\|sec\|tab\|app\|[cC]\)\?\*\?\_\s*{'

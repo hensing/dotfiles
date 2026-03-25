@@ -1,52 +1,40 @@
-" be iMproved, required by vundle
+" Plain vim fallback config — nvim uses ~/.config/nvim/init.lua
+" vim-plug manages plugins for vim only
 set nocompatible
 
-" set the runtime path to include Vundle and initialize
-"set rtp+=~/.vim/bundle/Vundle.vim
 call plug#begin('~/.vim/bundle')
-filetype off					" required (pluginmanager)
 
-" OTHER PLUGINS
-Plug 'vim-airline/vim-airline'		" powerline
-Plug 'thomwiggers/vim-colors-solarized'	" solarized colors
-"Plug 'morhetz/gruvbox'			" gruvbox colors
-Plug 'YorickPeterse/happy_hacking.vim'
-Plug 'sherifkandeel/vim-colors'
-Plug 'benekastah/neomake'			" async. syntax checker
-Plug 'davidhalter/jedi-vim'			" python completion
-Plug 'hynek/vim-python-pep8-indent'		" python pep8
-Plug 'LaTeX-Box-Team/LaTeX-Box'		" Lightweight Toolbox for LaTeX
-Plug 'airblade/vim-gitgutter'			" git changes in gutter
-Plug 'tpope/vim-fugitive'			" git commit/diff/...
-Plug 'scrooloose/nerdcommenter'		" comments
-Plug 'kshenoy/vim-signature'			" display,toggle and iterate marks
-Plug 'kien/ctrlp.vim'				" ctrl p filebrowser
-Plug 'SirVer/ultisnips'			" sniplets engine
-Plug 'honza/vim-snippets'			" sniplets
-"Plug 'ivanov/vim-ipython'			" communication with ipython kernels
-Plug 'rust-lang/rust.vim'			" vim rust ftplugin
-Plug 'chase/vim-ansible-yaml'			" vim ansible ftplugin
-"Plug 'Valloric/YouCompleteMe'			" completion for several languages
-Plug 'ajh17/VimCompletesMe'			" very simple completion
-Plug 'editorconfig/editorconfig-vim'		" EditorConfig File support
+Plug 'thomwiggers/vim-colors-solarized'	" solarized (vim fallback)
+Plug 'neomake/neomake'			" async syntax checker
+Plug 'davidhalter/jedi-vim'		" python completion
+Plug 'Vimjas/vim-python-pep8-indent'	" python pep8
+Plug 'lervag/vimtex'			" LaTeX
+Plug 'airblade/vim-gitgutter'		" git changes in gutter
+Plug 'tpope/vim-fugitive'		" git commit/diff/...
+Plug 'preservim/nerdcommenter'		" comments
+Plug 'kshenoy/vim-signature'		" display,toggle and iterate marks
+Plug 'ctrlpvim/ctrlp.vim'		" ctrl p filebrowser
+Plug 'SirVer/ultisnips'			" snippet engine
+Plug 'honza/vim-snippets'		" snippets
+Plug 'rust-lang/rust.vim'		" vim rust ftplugin
+Plug 'pearofducks/ansible-vim'		" ansible ftplugin
+Plug 'editorconfig/editorconfig-vim'	" EditorConfig file support
 Plug 'dbeniamine/todo.txt-vim'		" todo.txt support
 
-" all plugins must be added before this line
-call plug#end()				" required (pluginmanager)
-filetype plugin indent on			" required (vundle)
+call plug#end()
+filetype plugin indent on
 
 " DISPLAY OPTIONS
-" set colorscheme
 colorscheme solarized
 set background=dark
-set display+=lastline					" display last edited line
-set showmode						" display current mode
-let &showbreak = ' ↳  '					" show linebreak
-set laststatus=2					" show last status
-set nu							" line numbers
-set matchpairs=(:),[:],{:},<:>				" set matching brackets, etc.
+set display+=lastline
+set showmode
+let &showbreak = ' ↳  '
+set laststatus=2
+set nu
+set matchpairs=(:),[:],{:},<:>
 set list
-set listchars=tab:▸\ ,trail:·,precedes:«,extends:»	" display tabs and trailing spaces
+set listchars=tab:▸\ ,trail:·,precedes:«,extends:»
 set mouse=a
 
 " be quiet
@@ -56,17 +44,17 @@ set novisualbell
 " always report on changes
 set report=0
 
-" redefine vim settings
+" vim-only settings
 if !has('nvim')
-	set syntax			" highlight syntax
-	set nobackup			" dont create ~-files
-	set showmatch			" show matching brackets etc.
+	set syntax
+	set nobackup
+	set showmatch
 endif
 
 " SEARCH OPTIONS
-set ignorecase				" ignore case-sensitivity
-set smartcase				" same except for patterns containing upper case
-set hlsearch				" highlight search
+set ignorecase
+set smartcase
+set hlsearch
 
 " make the history longer
 set history=1000
@@ -83,22 +71,18 @@ au BufNewFile *.py 0r ~/.vim/skeleton/skeleton.py | normal | Gdd
 
 " FOLDS
 set foldmethod=marker
-" load and write folds automatical
 autocmd BufWrite *.* mkview
-autocmd BufRead *.* silent! loadview
+autocmd BufRead  *.* silent! loadview
 
 " WRITING
-set autowrite				" write all files when calling :make
-set hidden				" dont close changed window
-" write as sudo
+set autowrite
+set hidden
 cmap w!! %!sudo tee > /dev/null %
 
 " COMPLETION
-set wildchar=<TAB>			" type to start wildcard expansion in the command-line
-set wildmenu				" nicer autocompletion
-set wildmode=full			" alternative: longest,list
-
-" ignore pattern for files: ignore that TeX crap
+set wildchar=<TAB>
+set wildmenu
+set wildmode=full
 set wildignore+=*.*~,*.acn,*.acr,*.alg,*.aux,*.bbl,*.bcf,*.blg,*.dvi,*.fdb_latexmk,*.fls,
 set wildignore+=*.glg,*.glo,*.gls,*.ist,*.latexmain,*.log,*.nav,*.nlo,*.out,*.pdf*,
 set wildignore+=*.run.xml,*.slg,*.snm,*.syg,*.syi,*.synctex.gz,*.tdo,*.toc,*/tmp/*
@@ -114,30 +98,14 @@ let g:tex_flavor = "latex"
 autocmd Bufread,BufNewFile *.tikz set filetype=tex
 
 " PLUGIN CONFIGURATION
-" airline config
-let g:airline_powerline_fonts = 1
-let g:airline#extensions#tabline#enabled = 1
-
-" YouCompleteMe options
-"let g:ycm_global_ycm_extra_conf='~/.vim/.ycm_extra_conf.py'
-" let g:ycm_path_to_python_interpreter='/usr/bin/python/'
-
-" use omnicomplete whenever there's no completion engine
-"set omnifunc=syntaxcomplete#Complete
-"let g:ycm_key_list_select_completion = ['<Tab>']
-"let g:ycm_key_list_previous_completion = ['<S-Tab>']
-
 " ultisnips
 let g:UltiSnipsSnippetsDir="~/.vim/bundle/vim-snippets/UltiSnips"
 let g:UltiSnipsExpandTrigger="<s-enter>"
 let g:UltiSnipsJumpForwardTrigger="<tab>"
 let g:UltiSnipsJumpBackwardTrigger="<s-tab>"
 
-" run Neomake when writing a file if it is installed
-" as plugins are only loaded after the vimrc is processed,
-" if_exists(':Neomake') will always be false if called from within
-" the vimrc
-function Run_neomake()
+" run Neomake when writing a file
+function! Run_neomake()
 	if exists(':Neomake')
 		Neomake
 	endif

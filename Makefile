@@ -1,4 +1,5 @@
 HOSTNAME := $(shell hostname)
+UNAME    := $(shell uname)
 HEADLESS=.dircolors\
 	 .zsh/git-prompt\
 	 .zsh/z
@@ -20,10 +21,14 @@ apply:
 	dconf load /org/mate/terminal/ < mate-terminal-conf.dconf
 
 vim:
-	/usr/bin/env nvim +silent +PluginInstall +PluginClean +qall || /usr/bin/env vim +silent +PluginInstall +PluginClean +qall
-	sudo pip install -U neovim
-	sudo pip3 install -U neovim
-	~/.vim/bundle/YouCompleteMe/install.py --clang-completer || true
+ifeq ($(UNAME), Darwin)
+	brew install neovim python3
+	pip3 install --user pynvim
+else
+	sudo apt-get install -y neovim python3-pip
+	pip3 install --user pynvim
+endif
+	/usr/bin/env nvim --headless "+Lazy sync" +qa
 
 ansible:
 	sudo apt-get install software-properties-common
