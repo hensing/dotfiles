@@ -1,23 +1,22 @@
-# Function to merge GPX files for geotagging.
+# Function to merge GPX files for geotagging (Lightroom-optimized).
 # Logic:
-#   1. Filters inputs for .gpx/.GPX files.
-#   2. Packs internal segments of each file into one (cleaning up drops).
-#   3. Merges files into one track, keeping them as separate segments (days/activities).
-#   4. Simplifies with 5m precision.
+#   1. Filters for .gpx/.GPX files.
+#   2. Packs internal segments within each file (cleaning up gaps).
+#   3. Keeps each input file as a SEPARATE track (prevents Lightroom's "jump lines").
+#   4. Applies 5m precision simplification.
 #
 # Usage: merge_gpx [-t "Title"] <output.gpx> <input_files_or_glob> [optional_title]
 merge_gpx() {
-  # Ensure extended globbing is active for case-insensitive matching (#i)
   setopt local_options EXTENDED_GLOB
 
-  local title="Merged Geotagging Route"
+  local title="Geotagging Route"
   local -a potential_files
   local -a babel_merge_args
   local output_file=""
   local opts
   local tmp_dir
 
-  # 1. Parse optional -t flag for the track title
+  # 1. Parse optional -t flag for the track name
   zparseopts -D -E t:=opts
   if [[ -n "$opts" ]]; then
     title="${opts[2]}"
@@ -26,14 +25,13 @@ merge_gpx() {
   # 2. Argument Validation
   if [[ $# -lt 2 ]]; then
     echo "Usage: merge_gpx [-t \"Title\"] <output.gpx> <input_glob_or_files> [title]"
-    echo "Example: merge_gpx -t \"Peru 2025\" peru.gpx activity_2025_07*"
     return 1
   fi
 
   output_file="$1"
   shift
 
-  # Determine if the last argument is a title string or a file
+  # Determine if the last argument is a title or a file
   local last_arg="${@[-1]}"
   if [[ ! -f "$last_arg" && "$opts" == "" ]]; then
     title="$last_arg"
@@ -42,28 +40,30 @@ merge_gpx() {
     potential_files=("$@")
   fi
 
-  # 3. Setup temporary workspace (auto-cleaned on exit)
+  # 3. Setup temporary workspace
   tmp_dir=$(mktemp -d -t gpx_merge_XXXXXX)
   trap "rm -rf '$tmp_dir'" EXIT INT TERM
 
   local total_input_points=0
   local -a filtered_input_files
 
-  # 4. First Pass: Filter for GPX files and pack segments
+  # 4. First Pass: Pre-process each file
   local i=1
   for f in "${potential_files[@]}"; do
-    # Only process if it's a file, ends in .gpx (case-insensitive), 
-    # and is NOT the output file itself
     if [[ -f "$f" && "$f" == *.(#i)gpx && "$f" != "$output_file" ]]; then
       filtered_input_files+=("$f")
       
-      # Count points for statistics
       local count=$(grep -c "<trkpt" "$f")
       total_input_points=$((total_input_points + count))
 
-      # Pre-process: Pack internal segments of this specific file
       local tmp_out="$tmp_dir/part_${i}.gpx"
-      gpsbabel -t -i gpx -f "$f" -x track,pack -o gpx -F "$tmp_out"
+      
+      # Step A: Pack segments within the file and set a unique name for this track
+      # We append the index to the title so each day/file is uniquely identified
+      gpsbabel -t -i gpx -f "$f" \
+        -x track,pack \
+        -x track,title="${title} (Part $i)" \
+        -o gpx -F "$tmp_out"
       
       babel_merge_args+=("-f" "$tmp_out")
       ((i++))
@@ -71,37 +71,33 @@ merge_gpx() {
   done
 
   if [[ ${#babel_merge_args} -eq 0 ]]; then
-    echo "Error: No valid .gpx input files found."
+    echo "Error: No valid GPX files found."
     return 1
   fi
 
-  echo "Merging ${#filtered_input_files} GPX files into '$output_file'..."
+  echo "Combining ${#filtered_input_files} tracks for Lightroom..."
 
-  # 5. Second Pass: Final Merge and 5m Simplification
-  # Note: No 'pack' here, so segments from Phase 1 remain separate.
+  # 5. Second Pass: Final concatenation and simplification
+  # CRITICAL: We do NOT use '-x track,merge' here. 
+  # This ensures each input becomes a separate <trk> element.
   gpsbabel -t -i gpx "${babel_merge_args[@]}" \
-    -x track,merge,title="$title" \
     -x simplify,crosstrack,error=5m \
     -o gpx -F "$output_file"
 
-  # 6. Success Output and Statistics
+  # 6. Success Output
   if [[ $? -eq 0 ]]; then
     local total_output_points=$(grep -c "<trkpt" "$output_file")
     
     echo "--------------------------------------------------------"
-    echo "Geotagging-ready GPX created successfully."
-    echo "Output:       $output_file"
-    echo "Track Title:  $title"
-    echo "Activities:   ${#filtered_input_files} segments preserved"
-    echo "Points:       $total_input_points (raw) -> $total_output_points (optimized)"
-    
-    if [[ $total_input_points -gt 0 ]]; then
-      local percent=$(( 100 * total_output_points / total_input_points ))
-      echo "Data:         Kept ${percent}% of points (5m tolerance)"
-    fi
+    echo "LR-Optimized GPX created: $output_file"
+    echo "Base Title:    $title"
+    echo "Track Count:   ${#filtered_input_files} (separate tracks)"
+    echo "Points:        $total_input_points -> $total_output_points"
     echo "--------------------------------------------------------"
+    echo "Tip: Lightroom Map module will now show these as distinct"
+    echo "activities without straight connecting lines between them."
   else
-    echo "Error: GPSBabel failed during the merge step."
+    echo "Error: GPSBabel failed."
     return 1
   fi
 }
