@@ -1,3 +1,8 @@
+-----------------
+-- Python host --
+-----------------
+vim.g.python3_host_prog = vim.fn.expand("~/.local/venv/nvim/bin/python3")
+
 ----------
 -- lazy --
 ----------

@@ -20,14 +20,16 @@ dump:
 apply:
 	dconf load /org/mate/terminal/ < mate-terminal-conf.dconf
 
+NVIM_VENV = $(HOME)/.local/venv/nvim
+
 vim:
 ifeq ($(UNAME), Darwin)
 	brew install neovim python3
-	pip3 install --user pynvim
 else
-	sudo apt-get install -y neovim python3-pip
-	pip3 install --user pynvim
+	sudo apt-get install -y neovim python3 python3-venv
 endif
+	python3 -m venv $(NVIM_VENV)
+	$(NVIM_VENV)/bin/pip install -q pynvim
 	/usr/bin/env nvim --headless "+Lazy sync" +qa
 
 ansible:
