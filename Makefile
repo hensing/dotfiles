@@ -20,7 +20,8 @@ dump:
 apply:
 	dconf load /org/mate/terminal/ < mate-terminal-conf.dconf
 
-NVIM_VENV = $(HOME)/.local/venv/nvim
+NVIM_VENV     = $(HOME)/.local/venv/nvim
+DOTFILES_VENV = $(HOME)/.local/venv/dotfiles
 
 vim:
 ifeq ($(UNAME), Darwin)
@@ -47,4 +48,8 @@ clean:
 	echo "removing dead links"
 	find -L ~/ -name . -o -type d -prune -o -type l -exec rm {} +
 
-headless: tiny vim
+python-tools:
+	python3 -m venv $(DOTFILES_VENV)
+	$(DOTFILES_VENV)/bin/pip install -q keyring keyrings.alt
+
+headless: tiny vim python-tools

@@ -1,0 +1,141 @@
+#!/bin/sh
+''''exec "$HOME/.local/venv/dotfiles/bin/python3" "$0" "$@" # '''
+"""
+keyring_helper — Manage secrets in the system keyring.
+
+Passwords are stored under the service name 'keyring_helper' using the
+system keyring backend (Keychain on macOS, keyrings.alt on headless Linux).
+Requires the shared dotfiles venv: make python-tools
+
+Usage:
+    keyring_helper <entry>                  Retrieve password, or prompt to create it
+    keyring_helper -c <entry>               Change an existing password interactively
+    keyring_helper -d <entry>               Delete a stored password
+    keyring_helper -n <entry> <password>    Store a password non-interactively
+
+Examples:
+    keyring_helper restic_photos
+    keyring_helper -c restic_photos
+    keyring_helper -d restic_photos
+    keyring_helper -n restic_photos mysecretpassword
+
+Exit codes:
+    0   Success
+    1   User / keyring error
+    2   Dependency missing
+"""
+
+import argparse
+import getpass
+import sys
+
+try:
+    import keyring
+    import keyring.errors
+except ImportError:
+    print("error: 'keyring' not installed — run: make python-tools", file=sys.stderr)
+    sys.exit(2)
+
+SERVICE = "keyring_helper"
+
+
+def _get(entry: str) -> str | None:
+    return keyring.get_password(SERVICE, entry)
+
+
+def _set(entry: str, password: str) -> None:
+    keyring.set_password(SERVICE, entry, password)
+
+
+def _delete(entry: str) -> None:
+    try:
+        keyring.delete_password(SERVICE, entry)
+    except keyring.errors.PasswordDeleteError as exc:
+        print(f"error: could not delete password: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _prompt_new(entry: str) -> str:
+    password = getpass.getpass(f"Enter new password for '{entry}': ")
+    confirm = getpass.getpass("Confirm password: ")
+    if password != confirm:
+        print("error: passwords do not match.", file=sys.stderr)
+        sys.exit(1)
+    return password
+
+
+def get_or_create(entry: str) -> None:
+    password = _get(entry)
+    if password is not None:
+        print(password, end="")
+        return
+    print(f"No password found for '{entry}'.", file=sys.stderr)
+    password = _prompt_new(entry)
+    _set(entry, password)
+    print(f"Password for '{entry}' stored.", file=sys.stderr)
+    print(password, end="")
+
+
+def change_password(entry: str) -> None:
+    if _get(entry) is None:
+        print(f"error: no password found for '{entry}'. Use without flags to create one.", file=sys.stderr)
+        sys.exit(1)
+    password = _prompt_new(entry)
+    _set(entry, password)
+    print(f"Password for '{entry}' updated.", file=sys.stderr)
+
+
+def delete_password(entry: str) -> None:
+    if _get(entry) is None:
+        print(f"error: no password found for '{entry}'.", file=sys.stderr)
+        sys.exit(1)
+    _delete(entry)
+    print(f"Password for '{entry}' deleted.", file=sys.stderr)
+
+
+def set_inline(entry: str, password: str) -> None:
+    _set(entry, password)
+    print(f"Password for '{entry}' stored.", file=sys.stderr)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="keyring_helper",
+        description="Manage secrets in the system keyring.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+examples:
+  keyring_helper restic_photos              retrieve or interactively create password
+  keyring_helper -c restic_photos           change existing password
+  keyring_helper -d restic_photos           delete password
+  keyring_helper -n restic_photos s3cr3t    store password non-interactively
+        """,
+    )
+
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("-c", "--change", action="store_true", help="change the stored password interactively")
+    mode.add_argument("-d", "--delete", action="store_true", help="delete the stored password")
+    mode.add_argument("-n", "--new", action="store_true", help="store password non-interactively (requires <password>)")
+
+    parser.add_argument("entry", help="keyring entry name (e.g. restic_photos)")
+    parser.add_argument("password", nargs="?", help="password value — only used with --new")
+
+    args = parser.parse_args()
+
+    if args.new and not args.password:
+        parser.error("--new requires a <password> argument")
+    if not args.new and args.password:
+        parser.error("unexpected argument — <password> is only valid with --new")
+
+    if args.change:
+        change_password(args.entry)
+    elif args.delete:
+        delete_password(args.entry)
+    elif args.new:
+        set_inline(args.entry, args.password)
+    else:
+        get_or_create(args.entry)
+
+
+if __name__ == "__main__":
+    main()

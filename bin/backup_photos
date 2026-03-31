@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# --- KONFIGURATION ---
+REMOTE_PCLOUD="pcloud"
+REPO_CAT="rclone:${REMOTE_PCLOUD}:backup/restic_catalog"
+REPO_RAW="rclone:${REMOTE_PCLOUD}:backup/restic_photos"
+
+# Passwort für Restic
+export RESTIC_PASSWORD_COMMAND="keyring_helper restic_photos"
+
+# --- RCLONE TUNING (USA -> EU) ---
+# Diese Variablen werden von rclone automatisch erkannt
+export RCLONE_TRANSFERS=12
+export RCLONE_CHECKERS=16
+export RCLONE_PCLOUD_HOSTNAME="eapi.pcloud.com"
+export RCLONE_BUFFER_SIZE="32M"
+
+EXCLUDE_FILE="$(dirname "$0")/restic-excludes.txt"
+
+# --- 1. KATALOG SICHERN ---
+echo "--- [1/2] Sicherung Lightroom Katalog ---"
+if [ -d "$HOME/Pictures/Lightroom" ]; then
+    # Hier KEINE rclone.args mehr nötig, rclone holt sich die Info aus den Exports oben
+    restic -r "$REPO_CAT" backup "$HOME/Pictures/Lightroom" \
+        --verbose \
+        --exclude-file="$EXCLUDE_FILE" \
+        --compression max
+else
+    echo "FEHLER: Katalog-Pfad nicht gefunden!"
+fi
+
+echo ""
+
+# --- 2. PHOTOS SICHERN ---
+echo "--- [2/2] Sicherung Sony RAWs ---"
+PHOTO_MOUNT="/Volumes/Photos"
+
+if [ -d "$PHOTO_MOUNT" ]; then
+    echo "Platte erkannt. Starte RAW-Backup..."
+    # Dein "Trust me" Flag --pack-size bleibt!
+    restic -r "$REPO_RAW" backup "$PHOTO_MOUNT" \
+        --verbose \
+        --exclude-file="$EXCLUDE_FILE" \
+        --pack-size 128 \
+        --compression max
+else
+    echo "INFO: Externe Platte ($PHOTO_MOUNT) nicht angeschlossen."
+    echo "-> RAW-Backup wird heute übersprungen."
+fi
+
+echo "--- Backup-Vorgang beendet ---"

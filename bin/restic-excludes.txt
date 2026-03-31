@@ -1,0 +1,20 @@
+# macOS Junk
+.DS_Store
+.AppleDouble
+._*
+.Spotlight-V100
+.Trashes
+
+# Lightroom Bloat (previews etc)
+*.lrdata
+*.vrcat
+Temporary Import Data
+
+# Lightroom Locks & Temp
+*.lrcat.lock
+*.lrcat-journal
+*.tmp
+Backups/
+
+# Optional: Index-Dateien (Excire etc.)
+*.excat
