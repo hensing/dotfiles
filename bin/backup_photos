@@ -25,6 +25,12 @@ if [ -d "$HOME/Pictures/Lightroom" ]; then
         --verbose \
         --exclude-file="$EXCLUDE_FILE" \
         --compression max
+
+
+    # forget
+    restic -r "$REPO_CAT" \
+        forget --keep-hourly 12 --keep-daily 10 --keep-weekly 5 --keep-monthly 12 --keep-yearly 5 \
+        --verbose
 else
     echo "FEHLER: Katalog-Pfad nicht gefunden!"
 fi
@@ -43,6 +49,11 @@ if [ -d "$PHOTO_MOUNT" ]; then
         --exclude-file="$EXCLUDE_FILE" \
         --pack-size 128 \
         --compression max
+
+    # forget
+    restic -r "$REPO_RAW" \
+        forget --keep-hourly 12 --keep-daily 10 --keep-weekly 5 --keep-monthly 12 --keep-yearly 5 \
+        --verbose
 else
     echo "INFO: Externe Platte ($PHOTO_MOUNT) nicht angeschlossen."
     echo "-> RAW-Backup wird heute übersprungen."
