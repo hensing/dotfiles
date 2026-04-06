@@ -4,11 +4,17 @@ if (( $+commands[docker] )); then
     # --- aliases and functions ---
 
     # Formats tab-separated docker fields (ID\tNAMES\tIMAGE\tSTATUS\tPORTS) into a
-    # coloured, aligned table. Pass --image to include the IMAGE column.
+    # coloured, aligned table.
+    #   --image      include the IMAGE column
+    #   --all-ports  show all port mappings; default shows only exposed ones
+    #                (bound to 0.0.0.0 or [::]), with the header "OPEN PORTS"
     _ds_fmt() {
-        local show_image=0
-        [[ "${1}" == "--image" ]] && show_image=1
-        awk -v show_image="$show_image" '
+        local show_image=0 all_ports=0
+        for arg in "$@"; do
+            [[ "$arg" == "--image"     ]] && show_image=1
+            [[ "$arg" == "--all-ports" ]] && all_ports=1
+        done
+        awk -v show_image="$show_image" -v all_ports="$all_ports" '
 BEGIN {
     FS = "\t"
     GREEN  = "\033[32m"; YELLOW = "\033[33m"
@@ -35,13 +41,14 @@ NF {
     n++
 }
 END {
+    ports_hdr = all_ports ? "PORTS" : "BOUND PORTS"
     if (show_image) {
         printf "%-" w_id "s  %-" w_name "s  %-" w_img "s  %-" w_status "s  %s\n",
-            "CONTAINER ID", "NAMES", "IMAGE", "STATUS", "PORTS"
+            "CONTAINER ID", "NAMES", "IMAGE", "STATUS", ports_hdr
         pad_len = w_id + 2 + w_name + 2 + w_img + 2 + w_status + 2
     } else {
         printf "%-" w_id "s  %-" w_name "s  %-" w_status "s  %s\n",
-            "CONTAINER ID", "NAMES", "STATUS", "PORTS"
+            "CONTAINER ID", "NAMES", "STATUS", ports_hdr
         pad_len = w_id + 2 + w_name + 2 + w_status + 2
     }
 
@@ -55,15 +62,21 @@ END {
             row_fmt = "%-" w_id "s  %-" w_name "s  " \
                       clr[i] "%-" w_status "s" (clr[i] != "" ? RESET : "") "  %s\n"
 
+        # Split ports and optionally filter to exposed-only (0.0.0.0 or [::])
+        delete raw_arr
         delete port_arr
-        np = split(ports_raw[i], port_arr, ", ")
+        np_raw = split(ports_raw[i], raw_arr, ", ")
+        fp = 0
+        for (k = 1; k <= np_raw; k++)
+            if (all_ports || raw_arr[k] ~ /:/)
+                port_arr[++fp] = raw_arr[k]
 
         if (show_image)
-            printf row_fmt, id[i], name[i], img[i], status_raw[i], (np > 0 ? port_arr[1] : "")
+            printf row_fmt, id[i], name[i], img[i], status_raw[i], (fp > 0 ? port_arr[1] : "")
         else
-            printf row_fmt, id[i], name[i], status_raw[i], (np > 0 ? port_arr[1] : "")
+            printf row_fmt, id[i], name[i], status_raw[i], (fp > 0 ? port_arr[1] : "")
 
-        for (j = 2; j <= np; j++)
+        for (j = 2; j <= fp; j++)
             printf "%s%s\n", pad, port_arr[j]
     }
 }
@@ -81,14 +94,14 @@ END {
         echo "$data" | _ds_fmt
     }
 
-    dsi() {
+    dse() {
         local data; data=$(_ds_data)
         [[ "$1" == "--sort" ]] && data=$(echo "$data" | sort -t$'\t' -k2)
-        echo "$data" | _ds_fmt --image
+        echo "$data" | _ds_fmt --image --all-ports
     }
 
     dss()  { ds  --sort }  # ds,  sorted by name
-    dssi() { dsi --sort }  # dsi, sorted by name
+    dsse() { dse --sort }  # dse, sorted by name
     alias de='docker exec -it'
     alias dl='docker logs'
     alias di='docker inspect'
