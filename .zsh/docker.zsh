@@ -1,9 +1,94 @@
 # Docker aliases and functions — loaded only when docker is present
 if (( $+commands[docker] )); then
 
-    # --- aliases ---
-    alias ds='docker ps'
-    alias dsa='docker ps -a'
+    # --- aliases and functions ---
+
+    # Formats tab-separated docker fields (ID\tNAMES\tIMAGE\tSTATUS\tPORTS) into a
+    # coloured, aligned table. Pass --image to include the IMAGE column.
+    _ds_fmt() {
+        local show_image=0
+        [[ "${1}" == "--image" ]] && show_image=1
+        awk -v show_image="$show_image" '
+BEGIN {
+    FS = "\t"
+    GREEN  = "\033[32m"; YELLOW = "\033[33m"
+    RED    = "\033[31m"; RESET  = "\033[0m"
+    n = 0
+    w_id = 12; w_name = 5; w_img = 5; w_status = 6
+}
+NF {
+    id[n]         = $1
+    name[n]       = $2
+    img[n]        = $3
+    status_raw[n] = $4
+    ports_raw[n]  = $5
+
+    if      ($4 ~ /unhealthy/)              clr[n] = RED
+    else if ($4 ~ /healthy/ || $4 ~ /Up /) clr[n] = GREEN
+    else if ($4 ~ /[Ee]xit/)               clr[n] = YELLOW
+    else                                    clr[n] = ""
+
+    if (length($1) > w_id)     w_id     = length($1)
+    if (length($2) > w_name)   w_name   = length($2)
+    if (length($4) > w_status) w_status = length($4)
+    if (show_image && length($3) > w_img) w_img = length($3)
+    n++
+}
+END {
+    if (show_image) {
+        printf "%-" w_id "s  %-" w_name "s  %-" w_img "s  %-" w_status "s  %s\n",
+            "CONTAINER ID", "NAMES", "IMAGE", "STATUS", "PORTS"
+        pad_len = w_id + 2 + w_name + 2 + w_img + 2 + w_status + 2
+    } else {
+        printf "%-" w_id "s  %-" w_name "s  %-" w_status "s  %s\n",
+            "CONTAINER ID", "NAMES", "STATUS", "PORTS"
+        pad_len = w_id + 2 + w_name + 2 + w_status + 2
+    }
+
+    pad = sprintf("%-" pad_len "s", "")
+
+    for (i = 0; i < n; i++) {
+        if (show_image)
+            row_fmt = "%-" w_id "s  %-" w_name "s  %-" w_img "s  " \
+                      clr[i] "%-" w_status "s" (clr[i] != "" ? RESET : "") "  %s\n"
+        else
+            row_fmt = "%-" w_id "s  %-" w_name "s  " \
+                      clr[i] "%-" w_status "s" (clr[i] != "" ? RESET : "") "  %s\n"
+
+        delete port_arr
+        np = split(ports_raw[i], port_arr, ", ")
+
+        if (show_image)
+            printf row_fmt, id[i], name[i], img[i], status_raw[i], (np > 0 ? port_arr[1] : "")
+        else
+            printf row_fmt, id[i], name[i], status_raw[i], (np > 0 ? port_arr[1] : "")
+
+        for (j = 2; j <= np; j++)
+            printf "%s%s\n", pad, port_arr[j]
+    }
+}
+'
+    }
+
+    # Fetches raw container data from docker in tab-separated form.
+    _ds_data() {
+        docker ps -a --format "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+    }
+
+    ds()  {
+        local data; data=$(_ds_data)
+        [[ "$1" == "--sort" ]] && data=$(echo "$data" | sort -t$'\t' -k2)
+        echo "$data" | _ds_fmt
+    }
+
+    dsi() {
+        local data; data=$(_ds_data)
+        [[ "$1" == "--sort" ]] && data=$(echo "$data" | sort -t$'\t' -k2)
+        echo "$data" | _ds_fmt --image
+    }
+
+    dss()  { ds  --sort }  # ds,  sorted by name
+    dssi() { dsi --sort }  # dsi, sorted by name
     alias de='docker exec -it'
     alias dl='docker logs'
     alias di='docker inspect'
