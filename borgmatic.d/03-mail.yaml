@@ -1,0 +1,57 @@
+# ---------------------------------------------------------------------
+# BORGMATIC CONFIGURATION: MAIL SYNC & BACKUP
+# ---------------------------------------------------------------------
+# Scope:     Local mail store (~hensing/gmail, synced via mbsync)
+# Target:    Hetzner Storagebox (Borg 1.4)
+# Requires:  Environment variables defined in /etc/borgmatic.d/.secrets
+#            - BORG_PASSPHRASE
+#            - KUMA_URL_MAIL
+# ---------------------------------------------------------------------
+
+# --- GLOBAL SETTINGS ---
+
+remote_path: borg-1.4
+
+compression: auto,zstd
+encryption_passphrase: "${BORG_PASSPHRASE}"
+
+# --- SOURCE DIRECTORIES ---
+
+source_directories:
+    - /home/hensing/gmail
+
+# --- REPOSITORIES ---
+
+repositories:
+    - path: ssh://storagebox/./mails
+      label: mails-repo
+
+# --- EXCLUDES ---
+
+exclude_patterns:
+    - '*.tmp'
+    - '~*'
+
+# --- RETENTION POLICY ---
+
+keep_daily: 7
+keep_weekly: 4
+keep_monthly: 12
+
+# --- LIFECYCLE HOOKS ---
+
+# 1. PRE-BACKUP: Sync mail via mbsync
+before_backup:
+    - echo "Syncing mail via mbsync..."
+    # Run mbsync as user hensing (borgmatic runs as root)
+    - sudo -u hensing mbsync -a
+
+# 2. POST-BACKUP (SUCCESS): Notify Monitoring
+after_backup:
+    - echo "Mail backup completed successfully."
+    - curl -fsS -m 10 --retry 3 "${KUMA_URL_MAIL}?status=up&msg=OK&ping=" > /dev/null
+
+# 3. ON ERROR (FAILURE): Alert Monitoring
+on_error:
+    - echo "CRITICAL - Mail backup failed!"
+    - curl -fsS -m 10 --retry 3 "${KUMA_URL_MAIL}?status=down&msg=Mail-Backup-Failed&ping=" > /dev/null
