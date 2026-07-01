@@ -219,42 +219,113 @@ END {
     }
 
     # Check running containers for root processes and docker.sock mounts
+    # Usage: docker_check_root [-v|--verbose]   (-v expands host-root PID/CMD lists)
     docker_check_root() {
-        echo "--- Docker Container Security Check ---"
+        local verbose=false
+        case "$1" in
+            -v|--verbose) verbose=true ;;
+        esac
 
+        local -a ok_names undet_names
+        local -a warn_names warn_uids warn_counts warn_pids
+        local -a sock_names sock_uids sock_counts sock_pids
+        local total=0 any_pids=false
+
+        local container_id container_name id_full uid_num uid_label host_pids host_count sock cfg cfg_uid
         for container_id in $(docker ps -q); do
-            local container_name STATUS_ICON DOCKER_SOCK_MOUNTED container_id_full container_uid HOST_ROOT_PIDS
+            (( total++ ))
             container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/\///')
-            STATUS_ICON="✅"
-            DOCKER_SOCK_MOUNTED=false
 
+            sock=false
             if docker inspect "$container_id" --format '{{json .Mounts}}' | grep -q '/var/run/docker.sock'; then
-                STATUS_ICON="⚠️"
-                DOCKER_SOCK_MOUNTED=true
+                sock=true
             fi
 
-            container_id_full=$(docker exec "$container_id" id 2>/dev/null)
-            container_uid=$(echo "$container_id_full" | grep -oP 'uid=\K\d+')
-            HOST_ROOT_PIDS=$(docker top "$container_id" -eo uid,pid,cmd 2>/dev/null | awk '$1 == "0" && $1 != "UID" { print $0 }')
-
-            [[ -n "$HOST_ROOT_PIDS" ]] && STATUS_ICON="⚠️"
-
-            if [[ -z "$container_uid" ]]; then
-                echo "⚠️  $container_name (${container_id:0:12}): UNDETERMINED (id tool missing)"
-            elif [[ "$container_uid" -eq 0 ]]; then
-                echo "⚠️  $container_name (${container_id:0:12}): ROOT (UID 0)!"
+            id_full=$(docker exec "$container_id" id 2>/dev/null)
+            if [[ -n "$id_full" ]]; then
+                uid_num=$(echo "$id_full" | grep -oP 'uid=\K\d+')
+                uid_label=${id_full#uid=}       # e.g. "0(root)", "33(www-data)", "990"
+                uid_label=${uid_label%% *}
+                [[ -z "$uid_label" ]] && uid_label=$uid_num
             else
-                echo "$STATUS_ICON $container_name (${container_id:0:12}): $container_id_full"
+                # Fallback for minimal images without an `id` binary: use the
+                # configured user. This is the declared user, not runtime-verified,
+                # so mark it with "?". docker top below stays the root-process truth.
+                cfg=$(docker inspect --format '{{.Config.User}}' "$container_id" 2>/dev/null)
+                cfg_uid=${cfg%%:*}              # strip ":group" if present
+                if [[ -z "$cfg" || "$cfg_uid" == "root" || "$cfg_uid" == "0" ]]; then
+                    uid_num=0; uid_label="0(root?)"          # no USER set → defaults to root
+                elif [[ "$cfg_uid" == <-> ]]; then
+                    uid_num=$cfg_uid; uid_label="${cfg_uid}?"
+                else
+                    uid_num=""; uid_label="${cfg_uid}?"      # named user, uid unresolved
+                fi
             fi
 
-            [[ "$DOCKER_SOCK_MOUNTED" == true ]] && echo "   -> 🚨 DOCKER_SOCK MOUNTED!"
-            if [[ -n "$HOST_ROOT_PIDS" ]]; then
-                echo "   -> 🚨 Host-root processes (UID/PID/CMD):"
-                echo "$HOST_ROOT_PIDS" | sed 's/^/      * /'
+            host_pids=$(docker top "$container_id" -eo uid,pid,cmd 2>/dev/null | awk '$1 == "0" && $1 != "UID" { print $0 }')
+            if [[ -n "$host_pids" ]]; then
+                host_count=$(echo "$host_pids" | wc -l | tr -d ' ')
+                any_pids=true
+            else
+                host_count=0
+            fi
+
+            # Categorize by highest severity (each container appears once)
+            if [[ "$sock" == true ]]; then
+                sock_names+=("$container_name"); sock_uids+=("$uid_label"); sock_counts+=("$host_count"); sock_pids+=("$host_pids")
+            elif [[ "$uid_num" == "0" || "$host_count" -gt 0 ]]; then
+                warn_names+=("$container_name"); warn_uids+=("$uid_label"); warn_counts+=("$host_count"); warn_pids+=("$host_pids")
+            elif [[ -n "$uid_label" ]]; then
+                ok_names+=("$container_name")
+            else
+                undet_names+=("$container_name")
             fi
         done
 
-        echo "--- End of Check ---"
+        # --- Output ---------------------------------------------------------
+        print "━━━ Docker Security Check ━━━━━━━━━━━━━━━━━━━━━━"
+        print ""
+
+        if (( ${#ok_names} )); then
+            print " ✅ OK (${#ok_names}): ${(j:, :)ok_names}"
+            print ""
+        fi
+
+        local i n w hr
+        if (( ${#warn_names} )); then
+            print " ⚠️  Root / host-root:"
+            w=0; for n in $warn_names; do (( ${#n} > w )) && w=${#n}; done
+            for i in {1..${#warn_names}}; do
+                hr=""; (( warn_counts[i] > 0 )) && hr="   host-root×${warn_counts[i]}"
+                printf '    %-*s   uid=%s%s\n' "$w" "$warn_names[i]" "$warn_uids[i]" "$hr"
+                if [[ "$verbose" == true && -n "$warn_pids[i]" ]]; then
+                    echo "$warn_pids[i]" | awk '{pid=$2; $1=""; $2=""; sub(/^ +/,""); printf "        %s  %s\n", pid, $0}'
+                fi
+            done
+            print ""
+        fi
+
+        if (( ${#sock_names} )); then
+            print " 🚨 docker.sock gemountet:"
+            w=0; for n in $sock_names; do (( ${#n} > w )) && w=${#n}; done
+            for i in {1..${#sock_names}}; do
+                hr=""; (( sock_counts[i] > 0 )) && hr="   host-root×${sock_counts[i]}"
+                printf '    %-*s   uid=%s%s\n' "$w" "$sock_names[i]" "$sock_uids[i]" "$hr"
+                if [[ "$verbose" == true && -n "$sock_pids[i]" ]]; then
+                    echo "$sock_pids[i]" | awk '{pid=$2; $1=""; $2=""; sub(/^ +/,""); printf "        %s  %s\n", pid, $0}'
+                fi
+            done
+            print ""
+        fi
+
+        if (( ${#undet_names} )); then
+            print " ❓ Unbestimmt (id fehlt): ${(j:, :)undet_names}"
+            print ""
+        fi
+
+        local summary=" ${total} total · ${#ok_names} ok · ${#warn_names} root · ${#sock_names} sock"
+        [[ "$verbose" != true && "$any_pids" == true ]] && summary+="   (-v für PID-Details)"
+        print "$summary"
     }
 
     # Pull and recreate all stacks in /opt/stacks, reload nginx if anything changed
