@@ -25,12 +25,17 @@ if [ -d "$HOME/Pictures/Lightroom" ]; then
         --verbose \
         --exclude-file="$EXCLUDE_FILE" \
         --compression max
+    CAT_RC=$?
 
 
     # forget
     restic -r "$REPO_CAT" \
         forget --keep-last 3 --keep-within-hourly 12h --keep-within-daily 10d --keep-within-weekly 31d --keep-within-monthly 12m --keep-within-yearly 5y \
         --verbose
+
+    CAT_EVENT="error"
+    [ "$CAT_RC" -eq 0 ] && CAT_EVENT="success"
+    "$(dirname "$0")/restic-metrics-push" catalog "$CAT_EVENT" "$REPO_CAT"
 else
     echo "FEHLER: Katalog-Pfad nicht gefunden!"
 fi
@@ -49,14 +54,24 @@ if [ -d "$PHOTO_MOUNT" ]; then
         --exclude-file="$EXCLUDE_FILE" \
         --pack-size 128 \
         --compression max
+    RAW_RC=$?
 
     # forget
     restic -r "$REPO_RAW" \
         forget --keep-last 3 --keep-within-hourly 12h --keep-within-daily 10d --keep-within-weekly 31d --keep-within-monthly 12m --keep-within-yearly 5y \
         --verbose
+
+    RAW_EVENT="error"
+    [ "$RAW_RC" -eq 0 ] && RAW_EVENT="success"
+    "$(dirname "$0")/restic-metrics-push" photos "$RAW_EVENT" "$REPO_RAW"
 else
     echo "INFO: Externe Platte ($PHOTO_MOUNT) nicht angeschlossen."
     echo "-> RAW-Backup wird heute übersprungen."
+    # Deliberately no push here: drive-not-mounted is not a backup failure,
+    # and the Grafana staleness panel already reflects an overdue "photos"
+    # backup correctly without a false-positive error push.
 fi
+
+"$(dirname "$0")/restic-metrics-push" pcloud
 
 echo "--- Backup-Vorgang beendet ---"

@@ -1,0 +1,194 @@
+#!/bin/bash
+# restic-metrics-push — push backup metrics to VictoriaMetrics (pouchmaster),
+# same /api/v1/import JSON-lines pipeline the Ansible-managed hosts use for
+# Borg (see ansible repo: roles/borgmatic/templates/borg-metrics-push.sh.j2).
+#
+# Usage:
+#   restic-metrics-push <config-token> <success|error> <repo>   per-repo push
+#   restic-metrics-push pcloud                                  pCloud account usage only
+#
+# Repo passwords never touch this script — restic resolves
+# RESTIC_PASSWORD_COMMAND (keyring_helper) itself, and this script only reads
+# restic's own JSON output afterward.
+
+set -uo pipefail
+
+VM_URL="http://100.64.131.43:8428/api/v1/import"  # pouchmaster netbird_ip
+INSTANCE="hensing-mbp"
+STATE_DIR="$HOME/.cache/restic-metrics"
+mkdir -p "$STATE_DIR"
+
+NOW_S=$(date +%s)
+NOW_MS=$(( NOW_S * 1000 ))
+
+PAYLOAD=$(mktemp)
+SNAP_JSON_FILE=$(mktemp)
+trap 'rm -f "$PAYLOAD" "$SNAP_JSON_FILE"' EXIT
+
+if [ "$1" = "pcloud" ]; then
+  ABOUT_JSON_FILE=$(mktemp)
+  trap 'rm -f "$PAYLOAD" "$SNAP_JSON_FILE" "$ABOUT_JSON_FILE"' EXIT
+  if rclone about pcloud: --json > "$ABOUT_JSON_FILE" 2>/dev/null; then
+    python3 - "$NOW_MS" "$INSTANCE" "$ABOUT_JSON_FILE" <<'PYEOF' > "$PAYLOAD"
+import json
+import sys
+
+now_ms, instance, about_file = sys.argv[1:4]
+
+with open(about_file) as f:
+    d = json.load(f)
+
+for field, metric in (("used", "pcloud_account_used_bytes"), ("total", "pcloud_account_total_bytes")):
+    val = d.get(field)
+    if val is not None:
+        print(
+            '{"metric":{"__name__":"%s","instance":"%s"},"values":[%s],"timestamps":[%s]}'
+            % (metric, instance, val, now_ms)
+        )
+PYEOF
+  fi
+  [ -s "$PAYLOAD" ] && curl -fsS -m 15 --retry 3 -X POST -H "Content-Type: application/json" --data-binary @"$PAYLOAD" "$VM_URL" > /dev/null
+  exit 0
+fi
+
+CONFIG="$1"
+EVENT="$2"
+REPO="$3"
+STATE_FILE="$STATE_DIR/${CONFIG}.last-snapshot-id"
+
+SUCCESS=0
+[ "$EVENT" = "success" ] && SUCCESS=1
+
+# Event-based: pushed every run, success or failure.
+{
+  echo "{\"metric\":{\"__name__\":\"restic_backup_success\",\"instance\":\"${INSTANCE}\",\"config\":\"${CONFIG}\"},\"values\":[${SUCCESS}],\"timestamps\":[${NOW_MS}]}"
+  echo "{\"metric\":{\"__name__\":\"restic_backup_last_run_timestamp\",\"instance\":\"${INSTANCE}\",\"config\":\"${CONFIG}\"},\"values\":[${NOW_S}],\"timestamps\":[${NOW_MS}]}"
+} > "$PAYLOAD"
+
+STATS_JSON_FILE=$(mktemp)
+trap 'rm -f "$PAYLOAD" "$SNAP_JSON_FILE" "$STATS_JSON_FILE"' EXIT
+# --quiet: without it, restic can print extra non-JSON lines to stdout ahead
+# of the JSON object, which breaks parsing below. Read from a file (not a
+# shell arg) and swallow the python side's own stderr too, so a malformed
+# response is skipped quietly like every other best-effort step here, rather
+# than dumping a raw traceback to the terminal.
+if restic -r "$REPO" stats --mode raw-data --json --quiet > "$STATS_JSON_FILE" 2>/dev/null; then
+  OCCUPIED=$(python3 -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    print(json.load(f).get('total_size', ''))
+" "$STATS_JSON_FILE" 2>/dev/null)
+  if [ -n "$OCCUPIED" ]; then
+    echo "{\"metric\":{\"__name__\":\"restic_backup_repo_occupied_bytes\",\"instance\":\"${INSTANCE}\",\"config\":\"${CONFIG}\"},\"values\":[${OCCUPIED}],\"timestamps\":[${NOW_MS}]}" >> "$PAYLOAD"
+  fi
+fi
+
+# Full list, not --latest 1: retention (forget --keep-last 3 --keep-within-...,
+# run right before this) already keeps it small, and we need count/oldest too.
+if restic -r "$REPO" snapshots --json > "$SNAP_JSON_FILE" 2>/dev/null; then
+  python3 - "$CONFIG" "$INSTANCE" "$STATE_FILE" "$NOW_MS" "$SNAP_JSON_FILE" <<'PYEOF' >> "$PAYLOAD"
+import json
+import sys
+from datetime import datetime
+
+config, instance, state_file, now_ms, snap_file = sys.argv[1:6]
+
+with open(snap_file) as f:
+    snaps = json.load(f)
+
+if not snaps:
+    sys.exit(0)
+
+
+def epoch(snap):
+    t = snap.get("time")
+    if not t:
+        return None
+    try:
+        return datetime.strptime(t, "%Y-%m-%dT%H:%M:%S.%f%z").timestamp()
+    except ValueError:
+        return None
+
+
+sorted_snaps = sorted(snaps, key=lambda s: s.get("time", ""))
+newest = sorted_snaps[-1]
+oldest = sorted_snaps[0]
+snap_id = newest.get("id", "")
+
+# Current-state metrics (count, oldest/newest): pushed every run regardless
+# of dedup — they describe the repo as it stands right now.
+print(
+    '{"metric":{"__name__":"restic_backup_snapshot_count",'
+    '"instance":"%s","config":"%s"},"values":[%s],"timestamps":[%s]}'
+    % (instance, config, len(snaps), now_ms)
+)
+newest_epoch = epoch(newest)
+if newest_epoch is not None:
+    print(
+        '{"metric":{"__name__":"restic_backup_newest_snapshot_timestamp",'
+        '"instance":"%s","config":"%s"},"values":[%s],"timestamps":[%s]}'
+        % (instance, config, newest_epoch, now_ms)
+    )
+oldest_epoch = epoch(oldest)
+if oldest_epoch is not None:
+    print(
+        '{"metric":{"__name__":"restic_backup_oldest_snapshot_timestamp",'
+        '"instance":"%s","config":"%s"},"values":[%s],"timestamps":[%s]}'
+        % (instance, config, oldest_epoch, now_ms)
+    )
+
+last_id = ""
+try:
+    with open(state_file) as f:
+        last_id = f.read().strip()
+except FileNotFoundError:
+    pass
+
+# Snapshot-derived, dedup-guarded: only push duration/size/file-counts for a
+# genuinely new snapshot — on a failed run the newest snapshot is still the
+# *last successful* one, and re-pushing its stats would misrepresent it as
+# fresh.
+if snap_id and snap_id != last_id:
+    summary = newest.get("summary", {})
+    start, end = summary.get("backup_start"), summary.get("backup_end")
+    if start and end:
+        try:
+            fmt = "%Y-%m-%dT%H:%M:%S.%f%z"
+            duration = (datetime.strptime(end, fmt) - datetime.strptime(start, fmt)).total_seconds()
+            print(
+                '{"metric":{"__name__":"restic_backup_duration_seconds",'
+                '"instance":"%s","config":"%s"},"values":[%s],"timestamps":[%s]}'
+                % (instance, config, duration, now_ms)
+            )
+        except ValueError:
+            pass
+
+    added = summary.get("data_added_packed")
+    if added is not None:
+        print(
+            '{"metric":{"__name__":"restic_backup_new_data_bytes",'
+            '"instance":"%s","config":"%s"},"values":[%s],"timestamps":[%s]}'
+            % (instance, config, added, now_ms)
+        )
+
+    # No "deleted" field exists anywhere in restic's summary output (checked
+    # against restic's own docs) — only these three.
+    for metric, key in (
+        ("restic_backup_files_new", "files_new"),
+        ("restic_backup_files_changed", "files_changed"),
+        ("restic_backup_files_unmodified", "files_unmodified"),
+    ):
+        val = summary.get(key)
+        if val is not None:
+            print(
+                '{"metric":{"__name__":"%s","instance":"%s","config":"%s"},'
+                '"values":[%s],"timestamps":[%s]}'
+                % (metric, instance, config, val, now_ms)
+            )
+
+    with open(state_file, "w") as f:
+        f.write(snap_id)
+PYEOF
+fi
+
+curl -fsS -m 15 --retry 3 -X POST -H "Content-Type: application/json" --data-binary @"$PAYLOAD" "$VM_URL" > /dev/null
