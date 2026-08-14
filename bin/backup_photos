@@ -1,72 +1,123 @@
 #!/bin/bash
+set -o pipefail
 
-# --- KONFIGURATION ---
+# --- CONFIGURATION ---
 REMOTE_PCLOUD="pcloud"
 REPO_CAT="rclone:${REMOTE_PCLOUD}:backup/restic_catalog"
 REPO_RAW="rclone:${REMOTE_PCLOUD}:backup/restic_photos"
 
-# Passwort für Restic
+# Restic password
 export RESTIC_PASSWORD_COMMAND="keyring_helper restic_photos"
 
 # --- RCLONE TUNING (USA -> EU) ---
-# Diese Variablen werden von rclone automatisch erkannt
-export RCLONE_TRANSFERS=12
+# These variables are picked up automatically by rclone.
+export RCLONE_TRANSFERS=2
 export RCLONE_CHECKERS=16
 export RCLONE_PCLOUD_HOSTNAME="eapi.pcloud.com"
 export RCLONE_BUFFER_SIZE="32M"
 
 EXCLUDE_FILE="$(dirname "$0")/restic-excludes.txt"
 
-# --- 1. KATALOG SICHERN ---
-echo "--- [1/2] Sicherung Lightroom Katalog ---"
+LOG_DIR="$HOME/Library/Logs/restic"
+mkdir -p "$LOG_DIR"
+TS="$(date +%Y%m%d-%H%M%S)"
+
+DAY_OF_MONTH="$(date +%d)"
+DAY_OF_MONTH="${DAY_OF_MONTH#0}"
+
+# --- 1. BACK UP CATALOG ---
+echo "--- [1/2] Backing up Lightroom catalog ---"
 if [ -d "$HOME/Pictures/Lightroom" ]; then
-    # Hier KEINE rclone.args mehr nötig, rclone holt sich die Info aus den Exports oben
-    restic -r "$REPO_CAT" backup "$HOME/Pictures/Lightroom" \
+    CAT_LOG="$LOG_DIR/catalog-backup-$TS.log"
+    RCLONE_TRANSFERS=12 restic -r "$REPO_CAT" backup "$HOME/Pictures/Lightroom" \
         --verbose \
         --exclude-file="$EXCLUDE_FILE" \
-        --compression max
+        --compression max \
+        2>&1 | tee "$CAT_LOG"
     CAT_RC=$?
 
+    # test for connection issues
+    CAT_DEGRADED=0
+    grep -qE 'ERROR|retrying|closed network connection' "$CAT_LOG" && CAT_DEGRADED=1
 
-    # forget
-    restic -r "$REPO_CAT" \
-        forget --keep-last 3 --keep-within-hourly 12h --keep-within-daily 10d --keep-within-weekly 31d --keep-within-monthly 12m --keep-within-yearly 5y \
-        --verbose
+    restic -r "$REPO_CAT" check --verbose \
+        2>&1 | tee "$LOG_DIR/catalog-check-$TS.log"
+    CAT_CHECK_RC=$?
 
-    CAT_EVENT="error"
-    [ "$CAT_RC" -eq 0 ] && CAT_EVENT="success"
+    if [ "$DAY_OF_MONTH" -le 7 ]; then
+        restic -r "$REPO_CAT" check --read-data-subset=1/20 --verbose \
+            2>&1 | tee "$LOG_DIR/catalog-check-subset-$TS.log"
+        CAT_SUBSET_RC=$?
+        [ "$CAT_SUBSET_RC" -ne 0 ] && CAT_CHECK_RC=$CAT_SUBSET_RC
+    fi
+
+    # forget only runs on a successful backup, so a failed run can't prune
+    # snapshots we might still need to recover from.
+    if [ "$CAT_RC" -eq 0 ]; then
+        restic -r "$REPO_CAT" \
+            forget --keep-last 3 --keep-within-hourly 12h --keep-within-daily 10d --keep-within-weekly 31d --keep-within-monthly 12m --keep-within-yearly 5y \
+            --verbose \
+            2>&1 | tee "$LOG_DIR/catalog-forget-$TS.log"
+    fi
+
+    CAT_EVENT="success"
+    { [ "$CAT_RC" -ne 0 ] || [ "$CAT_DEGRADED" -eq 1 ]; } && CAT_EVENT="error"
     "$(dirname "$0")/restic-metrics-push" catalog "$CAT_EVENT" "$REPO_CAT"
+
+    CAT_CHECK_EVENT="success"
+    [ "$CAT_CHECK_RC" -ne 0 ] && CAT_CHECK_EVENT="error"
+    "$(dirname "$0")/restic-metrics-push" catalog_check "$CAT_CHECK_EVENT" "$REPO_CAT"
 else
-    echo "FEHLER: Katalog-Pfad nicht gefunden!"
+    echo "ERROR: Catalog path not found!"
 fi
 
 echo ""
 
-# --- 2. PHOTOS SICHERN ---
-echo "--- [2/2] Sicherung Sony RAWs ---"
+# --- 2. BACK UP PHOTOS ---
+echo "--- [2/2] Backing up Sony RAWs ---"
 PHOTO_MOUNT="/Volumes/Photos"
 
 if [ -d "$PHOTO_MOUNT" ]; then
-    echo "Platte erkannt. Starte RAW-Backup..."
-    # Dein "Trust me" Flag --pack-size bleibt!
+    echo "Drive detected. Starting RAW backup..."
+    RAW_LOG="$LOG_DIR/photos-backup-$TS.log"
+    # Default pack size (16 MiB), no --compression max: ARW files already compressed
     restic -r "$REPO_RAW" backup "$PHOTO_MOUNT" \
         --verbose \
         --exclude-file="$EXCLUDE_FILE" \
-        --pack-size 128 \
-        --compression max
+        2>&1 | tee "$RAW_LOG"
     RAW_RC=$?
 
-    # forget
-    restic -r "$REPO_RAW" \
-        forget --keep-last 3 --keep-within-hourly 12h --keep-within-daily 10d --keep-within-weekly 31d --keep-within-monthly 12m --keep-within-yearly 5y \
-        --verbose
+    RAW_DEGRADED=0
+    grep -qE 'ERROR|retrying|closed network connection' "$RAW_LOG" && RAW_DEGRADED=1
 
-    RAW_EVENT="error"
-    [ "$RAW_RC" -eq 0 ] && RAW_EVENT="success"
+    restic -r "$REPO_RAW" check --verbose \
+        2>&1 | tee "$LOG_DIR/photos-check-$TS.log"
+    RAW_CHECK_RC=$?
+
+    if [ "$DAY_OF_MONTH" -le 7 ]; then
+        restic -r "$REPO_RAW" check --read-data-subset=1/20 --verbose \
+            2>&1 | tee "$LOG_DIR/photos-check-subset-$TS.log"
+        RAW_SUBSET_RC=$?
+        [ "$RAW_SUBSET_RC" -ne 0 ] && RAW_CHECK_RC=$RAW_SUBSET_RC
+    fi
+
+    if [ "$RAW_RC" -eq 0 ]; then
+        restic -r "$REPO_RAW" \
+            forget --keep-last 3 --keep-within-hourly 12h --keep-within-daily 10d --keep-within-weekly 31d --keep-within-monthly 12m --keep-within-yearly 5y \
+            --verbose \
+            2>&1 | tee "$LOG_DIR/photos-forget-$TS.log"
+    fi
+
+    RAW_EVENT="success"
+    { [ "$RAW_RC" -ne 0 ] || [ "$RAW_DEGRADED" -eq 1 ]; } && RAW_EVENT="error"
     "$(dirname "$0")/restic-metrics-push" photos "$RAW_EVENT" "$REPO_RAW"
+
+    RAW_CHECK_EVENT="success"
+    [ "$RAW_CHECK_RC" -ne 0 ] && RAW_CHECK_EVENT="error"
+    "$(dirname "$0")/restic-metrics-push" photos_check "$RAW_CHECK_EVENT" "$REPO_RAW"
 else
-    echo "INFO: Externe Platte ($PHOTO_MOUNT) nicht angeschlossen."
-    echo "-> RAW-Backup wird heute übersprungen."
+    echo "INFO: External drive ($PHOTO_MOUNT) not attached."
+    echo "-> Skipping RAW backup today."
     # Deliberately no push here: drive-not-mounted is not a backup failure,
     # and the Grafana staleness panel already reflects an overdue "photos"
     # backup correctly without a false-positive error push.
@@ -74,4 +125,4 @@ fi
 
 "$(dirname "$0")/restic-metrics-push" pcloud
 
-echo "--- Backup-Vorgang beendet ---"
+echo "--- Backup run finished ---"

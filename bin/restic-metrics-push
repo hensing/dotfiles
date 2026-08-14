@@ -88,6 +88,7 @@ fi
 if restic -r "$REPO" snapshots --json > "$SNAP_JSON_FILE" 2>/dev/null; then
   python3 - "$CONFIG" "$INSTANCE" "$STATE_FILE" "$NOW_MS" "$SNAP_JSON_FILE" <<'PYEOF' >> "$PAYLOAD"
 import json
+import re
 import sys
 from datetime import datetime
 
@@ -100,12 +101,28 @@ if not snaps:
     sys.exit(0)
 
 
+TIME_RE = re.compile(r'^(.*T\d{2}:\d{2}:\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})$')
+
+
 def epoch(snap):
     t = snap.get("time")
     if not t:
         return None
+    # restic serializes snapshot times via Go's RFC3339Nano, which trims
+    # trailing zeros from the fractional seconds -- the field can carry 1-9
+    # digits depending on the snapshot's actual nanosecond value. Python's
+    # %f only accepts up to 6, so anything with 7-9 digits (a coin flip per
+    # snapshot) silently failed to parse and dropped the timestamp -- this
+    # is why the RAW repo's oldest-snapshot metric went missing.
+    m = TIME_RE.match(t)
+    if not m:
+        return None
+    base, frac, tz = m.groups()
+    frac = frac[:7] if frac else ".0"
+    if tz == "Z":
+        tz = "+00:00"
     try:
-        return datetime.strptime(t, "%Y-%m-%dT%H:%M:%S.%f%z").timestamp()
+        return datetime.strptime(base + frac + tz, "%Y-%m-%dT%H:%M:%S.%f%z").timestamp()
     except ValueError:
         return None
 
