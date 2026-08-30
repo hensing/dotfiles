@@ -56,12 +56,20 @@ EVENT="$2"
 REPO="$3"
 STATE_FILE="$STATE_DIR/${CONFIG}.last-snapshot-id"
 
+# "damaged" = repo integrity check found truncated/damaged pack files (pcloud
+# corruption). It counts as a failed run for restic_backup_success, and also
+# raises a dedicated gauge so Grafana can alert on it harder than on a generic
+# failure -- even when backup_photos' auto-heal cleared it the same run.
 SUCCESS=0
 [ "$EVENT" = "success" ] && SUCCESS=1
+DAMAGED=0
+[ "$EVENT" = "damaged" ] && DAMAGED=1
 
-# Event-based: pushed every run, success or failure.
+# Event-based: pushed every run, success or failure. restic_backup_repo_damaged
+# is emitted every run too (0 when healthy) so the series always exists.
 {
   echo "{\"metric\":{\"__name__\":\"restic_backup_success\",\"instance\":\"${INSTANCE}\",\"config\":\"${CONFIG}\"},\"values\":[${SUCCESS}],\"timestamps\":[${NOW_MS}]}"
+  echo "{\"metric\":{\"__name__\":\"restic_backup_repo_damaged\",\"instance\":\"${INSTANCE}\",\"config\":\"${CONFIG}\"},\"values\":[${DAMAGED}],\"timestamps\":[${NOW_MS}]}"
   echo "{\"metric\":{\"__name__\":\"restic_backup_last_run_timestamp\",\"instance\":\"${INSTANCE}\",\"config\":\"${CONFIG}\"},\"values\":[${NOW_S}],\"timestamps\":[${NOW_MS}]}"
 } > "$PAYLOAD"
 

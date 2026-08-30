@@ -9,12 +9,24 @@ REPO_RAW="rclone:${REMOTE_PCLOUD}:backup/restic_photos"
 # Restic password
 export RESTIC_PASSWORD_COMMAND="keyring_helper restic_photos"
 
-# --- RCLONE TUNING (USA -> EU) ---
-# These variables are picked up automatically by rclone.
-export RCLONE_TRANSFERS=2
+# --- RCLONE TUNING (spotty pcloud path, USA -> EU) ---
+# These variables are picked up automatically by rclone. pcloud's uploadfile
+# endpoint drops connections mid-PUT on a congested transatlantic link and has
+# twice (2026-08-13, 2026-08-29) persisted a *truncated* object that restic's
+# post-upload verify did not catch. Serialising uploads and widening the retry
+# budget lowers the odds; check_and_heal() below is the safety net.
+export RCLONE_TRANSFERS=1                # was 2: one upload at a time, less connection pressure
 export RCLONE_CHECKERS=16
 export RCLONE_PCLOUD_HOSTNAME="eapi.pcloud.com"
-export RCLONE_BUFFER_SIZE="32M"
+export RCLONE_BUFFER_SIZE="16M"
+export RCLONE_RETRIES=5
+# Keep low-level retries + timeouts short: a bad pcloud window is better handled
+# by failing fast and letting restic re-drive the pack on a fresh connection
+# than by grinding through 20 slow rclone retries (observed 2026-08-30).
+export RCLONE_LOW_LEVEL_RETRIES=10
+export RCLONE_TIMEOUT=120s
+export RCLONE_CONTIMEOUT=30s
+export RCLONE_EXPECT_CONTINUE_TIMEOUT=10s
 
 EXCLUDE_FILE="$(dirname "$0")/restic-excludes.txt"
 
@@ -25,10 +37,61 @@ TS="$(date +%Y%m%d-%H%M%S)"
 DAY_OF_MONTH="$(date +%d)"
 DAY_OF_MONTH="${DAY_OF_MONTH#0}"
 
+# check_and_heal <config> <repo> <src> <check_log> [heal-backup-opts...]
+#
+# Runs `restic check` and tees it to <check_log>. If the check reports damaged
+# pack files (pcloud truncation), attempts a *lossless* in-place heal while the
+# source is still attached: repair index (drops the broken packs from the index)
+# followed by a re-`backup` (re-uploads the now-missing blobs from <src>), then
+# re-checks. Never runs `repair snapshots --forget` or `prune` -- those lose
+# data and are left for manual review.
+#
+# Sets global REPO_DAMAGED=1 if truncation was seen (whether or not the heal
+# cleared it). Returns the final check's exit code (non-zero if anything is
+# still wrong).
+check_and_heal() {
+    local cfg="$1" repo="$2" src="$3" check_log="$4"
+    shift 4
+    local heal_opts=("$@")
+    local rc
+
+    restic -r "$repo" check --verbose 2>&1 | tee "$check_log"
+    rc=$?
+
+    grep -qiE 'unexpected file size|repository contains errors|repository is damaged|damaged pack file' "$check_log" || return "$rc"
+
+    REPO_DAMAGED=1
+    echo "!!! ${cfg}: damaged pack files detected -- attempting lossless in-place heal"
+    restic -r "$repo" unlock 2>&1 | tee "$LOG_DIR/${cfg}-autorepair-unlock-$TS.log"
+    restic -r "$repo" repair index --verbose 2>&1 | tee "$LOG_DIR/${cfg}-autorepair-index-$TS.log"
+
+    if [ -e "$src" ]; then
+        # --pack-size 4: small PUTs are far likelier to survive a bad pcloud
+        # window intact than the 16 MiB default (observed 2026-08-30).
+        restic -r "$repo" backup "$src" --verbose --pack-size 4 \
+            --exclude-file="$EXCLUDE_FILE" "${heal_opts[@]}" \
+            2>&1 | tee "$LOG_DIR/${cfg}-autorepair-heal-$TS.log"
+    else
+        echo "!!! ${cfg}: source '$src' unavailable -- cannot heal, manual repair needed"
+    fi
+
+    local recheck_log="$LOG_DIR/${cfg}-autorepair-check-$TS.log"
+    restic -r "$repo" check --verbose 2>&1 | tee "$recheck_log"
+    rc=$?
+    if [ "$rc" -eq 0 ] && ! grep -qiE 'unexpected file size|repository contains errors|repository is damaged|damaged pack file' "$recheck_log"; then
+        echo ">>> ${cfg}: auto-heal succeeded"
+    else
+        echo "!!! ${cfg}: auto-heal did NOT clear all errors -- manual intervention required"
+        rc=1
+    fi
+    return "$rc"
+}
+
 # --- 1. BACK UP CATALOG ---
 echo "--- [1/2] Backing up Lightroom catalog ---"
 if [ -d "$HOME/Pictures/Lightroom" ]; then
     CAT_LOG="$LOG_DIR/catalog-backup-$TS.log"
+    restic -r "$REPO_CAT" unlock 2>/dev/null
     RCLONE_TRANSFERS=12 restic -r "$REPO_CAT" backup "$HOME/Pictures/Lightroom" \
         --verbose \
         --exclude-file="$EXCLUDE_FILE" \
@@ -40,9 +103,11 @@ if [ -d "$HOME/Pictures/Lightroom" ]; then
     CAT_DEGRADED=0
     grep -qE 'ERROR|retrying|closed network connection' "$CAT_LOG" && CAT_DEGRADED=1
 
-    restic -r "$REPO_CAT" check --verbose \
-        2>&1 | tee "$LOG_DIR/catalog-check-$TS.log"
+    REPO_DAMAGED=0
+    check_and_heal catalog "$REPO_CAT" "$HOME/Pictures/Lightroom" \
+        "$LOG_DIR/catalog-check-$TS.log" --compression max
     CAT_CHECK_RC=$?
+    CAT_DAMAGED=$REPO_DAMAGED
 
     if [ "$DAY_OF_MONTH" -le 7 ]; then
         restic -r "$REPO_CAT" check --read-data-subset=1/20 --verbose \
@@ -51,9 +116,10 @@ if [ -d "$HOME/Pictures/Lightroom" ]; then
         [ "$CAT_SUBSET_RC" -ne 0 ] && CAT_CHECK_RC=$CAT_SUBSET_RC
     fi
 
-    # forget only runs on a successful backup, so a failed run can't prune
-    # snapshots we might still need to recover from.
-    if [ "$CAT_RC" -eq 0 ]; then
+    # forget only runs on a successful backup whose repo also passed its
+    # integrity check -- a failed run or a damaged repo must not be pruned,
+    # so we keep every snapshot we might still need to recover from.
+    if [ "$CAT_RC" -eq 0 ] && [ "$CAT_CHECK_RC" -eq 0 ]; then
         restic -r "$REPO_CAT" \
             forget --keep-last 3 --keep-within-hourly 12h --keep-within-daily 10d --keep-within-weekly 31d --keep-within-monthly 12m --keep-within-yearly 5y \
             --verbose \
@@ -66,6 +132,7 @@ if [ -d "$HOME/Pictures/Lightroom" ]; then
 
     CAT_CHECK_EVENT="success"
     [ "$CAT_CHECK_RC" -ne 0 ] && CAT_CHECK_EVENT="error"
+    [ "$CAT_DAMAGED" -eq 1 ] && CAT_CHECK_EVENT="damaged"
     "$(dirname "$0")/restic-metrics-push" catalog_check "$CAT_CHECK_EVENT" "$REPO_CAT"
 else
     echo "ERROR: Catalog path not found!"
@@ -80,6 +147,7 @@ PHOTO_MOUNT="/Volumes/Photos"
 if [ -d "$PHOTO_MOUNT" ]; then
     echo "Drive detected. Starting RAW backup..."
     RAW_LOG="$LOG_DIR/photos-backup-$TS.log"
+    restic -r "$REPO_RAW" unlock 2>/dev/null
     # Default pack size (16 MiB), no --compression max: ARW files already compressed
     restic -r "$REPO_RAW" backup "$PHOTO_MOUNT" \
         --verbose \
@@ -90,9 +158,10 @@ if [ -d "$PHOTO_MOUNT" ]; then
     RAW_DEGRADED=0
     grep -qE 'ERROR|retrying|closed network connection' "$RAW_LOG" && RAW_DEGRADED=1
 
-    restic -r "$REPO_RAW" check --verbose \
-        2>&1 | tee "$LOG_DIR/photos-check-$TS.log"
+    REPO_DAMAGED=0
+    check_and_heal photos "$REPO_RAW" "$PHOTO_MOUNT" "$LOG_DIR/photos-check-$TS.log"
     RAW_CHECK_RC=$?
+    RAW_DAMAGED=$REPO_DAMAGED
 
     if [ "$DAY_OF_MONTH" -le 7 ]; then
         restic -r "$REPO_RAW" check --read-data-subset=1/20 --verbose \
@@ -101,7 +170,8 @@ if [ -d "$PHOTO_MOUNT" ]; then
         [ "$RAW_SUBSET_RC" -ne 0 ] && RAW_CHECK_RC=$RAW_SUBSET_RC
     fi
 
-    if [ "$RAW_RC" -eq 0 ]; then
+    # See the catalog block: forget needs both a clean backup and a clean check.
+    if [ "$RAW_RC" -eq 0 ] && [ "$RAW_CHECK_RC" -eq 0 ]; then
         restic -r "$REPO_RAW" \
             forget --keep-last 3 --keep-within-hourly 12h --keep-within-daily 10d --keep-within-weekly 31d --keep-within-monthly 12m --keep-within-yearly 5y \
             --verbose \
@@ -114,6 +184,7 @@ if [ -d "$PHOTO_MOUNT" ]; then
 
     RAW_CHECK_EVENT="success"
     [ "$RAW_CHECK_RC" -ne 0 ] && RAW_CHECK_EVENT="error"
+    [ "$RAW_DAMAGED" -eq 1 ] && RAW_CHECK_EVENT="damaged"
     "$(dirname "$0")/restic-metrics-push" photos_check "$RAW_CHECK_EVENT" "$REPO_RAW"
 else
     echo "INFO: External drive ($PHOTO_MOUNT) not attached."
