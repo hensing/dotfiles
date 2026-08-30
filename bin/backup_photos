@@ -148,9 +148,10 @@ if [ -d "$PHOTO_MOUNT" ]; then
     echo "Drive detected. Starting RAW backup..."
     RAW_LOG="$LOG_DIR/photos-backup-$TS.log"
     restic -r "$REPO_RAW" unlock 2>/dev/null
-    # Default pack size (16 MiB), no --compression max: ARW files already compressed
+    # --pack-size 8 (half the 16 MiB default): shorter PUTs survive a spotty
+    # pcloud window far better. No --compression max: ARW files already compressed.
     restic -r "$REPO_RAW" backup "$PHOTO_MOUNT" \
-        --verbose \
+        --verbose --pack-size 8 \
         --exclude-file="$EXCLUDE_FILE" \
         2>&1 | tee "$RAW_LOG"
     RAW_RC=$?
