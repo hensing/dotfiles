@@ -1,0 +1,98 @@
+#!/bin/bash
+set -o pipefail
+
+# --- CONFIGURATION ---
+REMOTE_HOST="truenas"
+PHOTO_MOUNT="/Volumes/Photos"
+CATALOG_SRC="$HOME/Pictures/Lightroom"
+REMOTE_MAC_DIR="/mnt/storage/photos/mac/"
+REMOTE_CATALOG_DIR="/mnt/storage/photos/catalog/"
+EXCLUDE_FILE="$(dirname "$0")/restic-excludes.txt"
+
+RSYNC_BIN="/opt/homebrew/bin/rsync"
+[ -x "$RSYNC_BIN" ] || RSYNC_BIN="rsync"
+
+# --- ARGS ---
+DRY_RUN=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -n|--dry-run) DRY_RUN=(--dry-run) ;;
+        -h|--help) echo "usage: $(basename "$0") [--dry-run]"; exit 0 ;;
+        *) echo "$(basename "$0"): unknown argument '$1'" >&2
+           echo "usage: $(basename "$0") [--dry-run]" >&2
+           exit 2 ;;
+    esac
+    shift
+done
+
+LOG_DIR="$HOME/Library/Logs/rsync-photos"
+mkdir -p "$LOG_DIR"
+TS="$(date +%Y%m%d-%H%M%S)"
+
+# mac/ and catalog/ under /mnt/storage/photos are true 1:1 mirrors of the
+# drive and the Lightroom catalog respectively (see bin/reorg_photos_nas for
+# the one-time split that made this true) -- everything else on the NAS
+# (archive/) is curated by hand and this script never touches it.
+#
+# --iconv=utf-8-mac,utf-8: macOS/APFS stores umlaut filenames in NFD; the NAS
+# side is NFC. Without this, rsync treats every visually-identical umlaut
+# folder as brand new and re-uploads it as a duplicate instead of recognizing
+# it already exists (confirmed live against the "Eivör" folder).
+#
+# --checksum: once encoding is fixed, most already-transferred files still
+# differ only in mtime (an artifact of the old Windows-based sync), which
+# would otherwise force a near-total re-transfer under the default mtime+size
+# quick check. --checksum reads content locally on each end (no extra network
+# cost beyond real diffs) but is I/O-bound and slow on the first pass over a
+# multi-TB library -- expected.
+#
+# --delete: safe here specifically because mac/ and catalog/ are true 1:1
+# mirrors (drive/catalog are authoritative). Never add --delete against
+# archive/.
+RSYNC_OPTS=(-rlt --iconv=utf-8-mac,utf-8 --checksum --delete --max-delete=1000
+            --exclude-from="$EXCLUDE_FILE" -P "${DRY_RUN[@]}")
+
+# Refuse to run a --delete-enabled push against a source that looks empty or
+# barely populated -- guards against a failed/partial mount silently wiping
+# the NAS mirror. Real libraries have thousands of entries; this threshold is
+# deliberately far below that.
+MIN_ENTRIES=20
+
+check_not_suspiciously_empty() {
+    local path="$1" label="$2"
+    local count
+    count=$(find "$path" -mindepth 1 -maxdepth 2 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$count" -lt "$MIN_ENTRIES" ]; then
+        echo "!!! $label has only $count entries -- refusing to run a --delete push (looks unmounted/empty)." >&2
+        return 1
+    fi
+    return 0
+}
+
+echo "--- [1/2] Pushing external drive -> mac/ ---"
+if [ -d "$PHOTO_MOUNT" ]; then
+    if check_not_suspiciously_empty "$PHOTO_MOUNT" "$PHOTO_MOUNT"; then
+        LOG="$LOG_DIR/mac-$TS.log"
+        "$RSYNC_BIN" "${RSYNC_OPTS[@]}" "$PHOTO_MOUNT/" "${REMOTE_HOST}:${REMOTE_MAC_DIR}" 2>&1 | tee "$LOG"
+        MAC_RC=$?
+        [ "$MAC_RC" -ne 0 ] && echo "!!! mac/ push exited with status $MAC_RC -- see $LOG" >&2
+    fi
+else
+    echo "INFO: external drive ($PHOTO_MOUNT) not attached -- skipping."
+fi
+
+echo ""
+echo "--- [2/2] Pushing Lightroom catalog -> catalog/ ---"
+if [ -d "$CATALOG_SRC" ]; then
+    if check_not_suspiciously_empty "$CATALOG_SRC" "$CATALOG_SRC"; then
+        LOG="$LOG_DIR/catalog-$TS.log"
+        "$RSYNC_BIN" "${RSYNC_OPTS[@]}" "$CATALOG_SRC/" "${REMOTE_HOST}:${REMOTE_CATALOG_DIR}" 2>&1 | tee "$LOG"
+        CAT_RC=$?
+        [ "$CAT_RC" -ne 0 ] && echo "!!! catalog/ push exited with status $CAT_RC -- see $LOG" >&2
+    fi
+else
+    echo "ERROR: catalog path '$CATALOG_SRC' not found!" >&2
+fi
+
+echo ""
+echo "--- Push run finished ---"
