@@ -9,6 +9,55 @@ REPO_RAW="rclone:${REMOTE_PCLOUD}:backup/restic_photos"
 # Restic password
 export RESTIC_PASSWORD_COMMAND="keyring_helper restic_photos"
 
+# --- ARGS ---
+# --verify-data / -V: also run the slow deep pack-*content* check
+# (restic-verify-data, ~2h/pass over pcloud). Off by default -- the everyday run
+# only does the fast size/structure check. Prefer running the deep check from
+# cron on a server; see bin/restic-verify-data.
+DO_VERIFY=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -V|--verify-data) DO_VERIFY=1 ;;
+        -h|--help) echo "usage: $(basename "$0") [--verify-data]"; exit 0 ;;
+        *) echo "$(basename "$0"): unknown argument '$1'" >&2
+           echo "usage: $(basename "$0") [--verify-data]" >&2
+           exit 2 ;;
+    esac
+    shift
+done
+
+# Interactive run? Let restic emit a periodic progress line (~every 20s) -- it
+# still flows through `tee` into the log. `-t 0` (a terminal on stdin) survives
+# the `... | tee` pipe on each backup call, so it's the reliable signal. Cron
+# leaves this unset, so restic prints only its end-of-run summary as before.
+if [ -t 0 ] || [ -t 1 ] || [ -t 2 ]; then
+    export RESTIC_PROGRESS_FPS="${RESTIC_PROGRESS_FPS:-0.05}"
+fi
+
+# --- pre-flight: is the metrics host reachable? ---
+# backup_photos pushes run status to VictoriaMetrics (restic-metrics-push). If
+# it's unreachable -- not on the VPN / netbird mesh -- the backup still runs but
+# Grafana won't see this run (the staleness alert will fire). Warn; interactively,
+# ask first. Cron (no TTY) warns and proceeds. RESTIC_METRICS_ASSUME_YES=1 skips
+# the prompt.
+VM_HOST="${RESTIC_METRICS_HOST:-100.64.131.43}"
+VM_PORT="${RESTIC_METRICS_PORT:-8428}"
+if command -v curl >/dev/null 2>&1 \
+   && ! curl -fsS --connect-timeout 3 -m 5 -o /dev/null \
+        "http://${VM_HOST}:${VM_PORT}/health" 2>/dev/null
+then
+    echo "!!! metrics host ${VM_HOST}:${VM_PORT} unreachable -- VPN / netbird down?" >&2
+    echo "    The backup will still run, but this run won't be recorded in Grafana." >&2
+    if [ -t 0 ] && [ -z "${RESTIC_METRICS_ASSUME_YES:-}" ]; then
+        printf "    Proceed anyway? [y/N] " >&2
+        read -r _ans
+        case "${_ans:-}" in
+            [yY]|[yY][eE][sS]) ;;
+            *) echo "    aborted." >&2; exit 1 ;;
+        esac
+    fi
+fi
+
 # --- RCLONE TUNING (spotty pcloud path, USA -> EU) ---
 # These variables are picked up automatically by rclone. pcloud's uploadfile
 # endpoint drops connections mid-PUT on a congested transatlantic link and has
@@ -33,9 +82,6 @@ EXCLUDE_FILE="$(dirname "$0")/restic-excludes.txt"
 LOG_DIR="$HOME/Library/Logs/restic"
 mkdir -p "$LOG_DIR"
 TS="$(date +%Y%m%d-%H%M%S)"
-
-DAY_OF_MONTH="$(date +%d)"
-DAY_OF_MONTH="${DAY_OF_MONTH#0}"
 
 # check_and_heal <config> <repo> <src> <check_log> [heal-backup-opts...]
 #
@@ -109,9 +155,8 @@ if [ -d "$HOME/Pictures/Lightroom" ]; then
     CAT_CHECK_RC=$?
     CAT_DAMAGED=$REPO_DAMAGED
 
-    if [ "$DAY_OF_MONTH" -le 7 ]; then
-        restic -r "$REPO_CAT" check --read-data-subset=1/20 --verbose \
-            2>&1 | tee "$LOG_DIR/catalog-check-subset-$TS.log"
+    if [ "$DO_VERIFY" -eq 1 ]; then
+        "$(dirname "$0")/restic-verify-data" catalog "$REPO_CAT"
         CAT_SUBSET_RC=$?
         [ "$CAT_SUBSET_RC" -ne 0 ] && CAT_CHECK_RC=$CAT_SUBSET_RC
     fi
@@ -164,9 +209,8 @@ if [ -d "$PHOTO_MOUNT" ]; then
     RAW_CHECK_RC=$?
     RAW_DAMAGED=$REPO_DAMAGED
 
-    if [ "$DAY_OF_MONTH" -le 7 ]; then
-        restic -r "$REPO_RAW" check --read-data-subset=1/20 --verbose \
-            2>&1 | tee "$LOG_DIR/photos-check-subset-$TS.log"
+    if [ "$DO_VERIFY" -eq 1 ]; then
+        "$(dirname "$0")/restic-verify-data" photos "$REPO_RAW"
         RAW_SUBSET_RC=$?
         [ "$RAW_SUBSET_RC" -ne 0 ] && RAW_CHECK_RC=$RAW_SUBSET_RC
     fi

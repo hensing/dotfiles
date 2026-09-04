@@ -1,0 +1,133 @@
+#!/bin/bash
+# restic-verify-data — deep content-verification of one pcloud restic repo.
+#
+# Runs `restic check --read-data-subset=N/24`, advancing N by one each run so the
+# whole repo's pack *contents* get read over 24 runs (the plain per-run
+# `restic check` in backup_photos only verifies pack *sizes*). This is the slow
+# part -- ~2h per pass over the transatlantic pcloud link -- so it is NOT run by
+# a normal `backup_photos`; call it explicitly (`backup_photos --verify-data`)
+# or, better, from cron on a server. It only ever reads the pcloud repo: the
+# source drive (/Volumes/Photos) does not need to be attached.
+#
+# Usage:
+#   restic-verify-data <config> [<repo>]
+#     config : photos | catalog   (label for logs + metrics)
+#     repo   : optional override of the default repo string for that config
+#
+# Server / cron: export RESTIC_PASSWORD_COMMAND or RESTIC_PASSWORD_FILE, have the
+# rclone `pcloud:` remote configured, and optionally set RESTIC_LOG_DIR /
+# RESTIC_VERIFY_STATE_DIR. Netbird access to the metrics host is optional; set
+# RESTIC_METRICS_INSTANCE so the series aren't labelled with the laptop's name.
+#
+# Pre-flight: probes the metrics host (VictoriaMetrics /health) first. If it's
+# unreachable -- i.e. not on the VPN / netbird mesh -- it warns that the result
+# won't reach Grafana; interactively it then asks before starting the ~2h run.
+# RESTIC_METRICS_ASSUME_YES=1 skips that prompt; cron (no TTY) warns and proceeds.
+#
+# Sample crontab (weekly, Sun 03:17 -- verifies both repos; catalog takes
+# seconds, photos ~2h). crontab can't expand $(...), so hard-code the host:
+#
+#   RESTIC_PASSWORD_FILE=/etc/restic/photos.pw
+#   RESTIC_LOG_DIR=/var/log/restic
+#   RESTIC_METRICS_INSTANCE=pouchmaster
+#   17 3 * * 0 ~/.dotfiles/bin/restic-verify-data catalog ; ~/.dotfiles/bin/restic-verify-data photos
+
+set -uo pipefail
+
+CONFIG="${1:-}"
+case "$CONFIG" in
+    photos)  DEFAULT_REPO="rclone:pcloud:backup/restic_photos" ;;
+    catalog) DEFAULT_REPO="rclone:pcloud:backup/restic_catalog" ;;
+    *) echo "usage: $(basename "$0") <photos|catalog> [repo]" >&2; exit 2 ;;
+esac
+REPO="${2:-$DEFAULT_REPO}"
+
+# Password: honour whatever the environment already set (server cron), else fall
+# back to the laptop's Keychain helper. Both repos share the restic_photos entry.
+if [ -z "${RESTIC_PASSWORD_COMMAND:-}" ] && [ -z "${RESTIC_PASSWORD_FILE:-}" ]; then
+    export RESTIC_PASSWORD_COMMAND="keyring_helper restic_photos"
+fi
+
+# pcloud EU endpoint (matches backup_photos). Reads can't corrupt the repo, so
+# unlike the upload path we do NOT pin RCLONE_TRANSFERS=1 here.
+export RCLONE_PCLOUD_HOSTNAME="${RCLONE_PCLOUD_HOSTNAME:-eapi.pcloud.com}"
+
+# VictoriaMetrics host (on the netbird mesh) -- probed pre-flight and pushed to
+# at the end.
+VM_HOST="${RESTIC_METRICS_HOST:-100.64.131.43}"
+VM_PORT="${RESTIC_METRICS_PORT:-8428}"
+
+# --- pre-flight: is the metrics host reachable? ---
+# This is a ~2h job; if VictoriaMetrics is unreachable (not on the VPN / netbird
+# mesh) the verify still runs but its success/damaged result never lands in
+# Grafana. Warn up front -- and when run interactively, ask before spending the
+# time. Non-interactive (cron) just warns and continues; the push is best-effort
+# anyway. Set RESTIC_METRICS_ASSUME_YES=1 to skip the prompt.
+if command -v curl >/dev/null 2>&1 \
+   && ! curl -fsS --connect-timeout 3 -m 5 -o /dev/null \
+        "http://${VM_HOST}:${VM_PORT}/health" 2>/dev/null
+then
+    echo "!!! ${CONFIG}: metrics host ${VM_HOST}:${VM_PORT} unreachable -- VPN / netbird down?" >&2
+    echo "    The verify will still run, but its result will not be recorded in Grafana." >&2
+    if [ -t 0 ] && [ -z "${RESTIC_METRICS_ASSUME_YES:-}" ]; then
+        printf "    Proceed anyway? [y/N] " >&2
+        read -r _ans
+        case "${_ans:-}" in
+            [yY]|[yY][eE][sS]) ;;
+            *) echo "    aborted." >&2; exit 1 ;;
+        esac
+    fi
+fi
+
+LOG_DIR="${RESTIC_LOG_DIR:-$HOME/Library/Logs/restic}"
+mkdir -p "$LOG_DIR"
+TS="$(date +%Y%m%d-%H%M%S)"
+LOG="$LOG_DIR/${CONFIG}-verify-$TS.log"
+
+# --- rotating slice: part 1..24, persisted so coverage is even regardless of
+# how often this runs ---
+STATE_DIR="${RESTIC_VERIFY_STATE_DIR:-$HOME/.cache/restic-metrics}"
+mkdir -p "$STATE_DIR"
+PART_FILE="$STATE_DIR/${CONFIG}.verify-part"
+LAST=0
+if [ -r "$PART_FILE" ]; then
+    read -r LAST < "$PART_FILE" || LAST=0
+fi
+case "$LAST" in ''|*[!0-9]*) LAST=0 ;; esac
+PART=$(( (LAST % 24) + 1 ))
+echo "$PART" > "$PART_FILE"
+
+echo ">>> ${CONFIG}: verifying pack contents, slice ${PART}/24  (repo: $REPO)"
+restic -r "$REPO" check --read-data-subset="${PART}/24" \
+    -o rclone.connections=8 --verbose 2>&1 | tee "$LOG"
+RC=${PIPESTATUS[0]}
+
+DAMAGED=0
+grep -qiE 'unexpected file size|repository contains errors|repository is damaged|damaged pack file' "$LOG" && DAMAGED=1
+SUCCESS=0
+{ [ "$RC" -eq 0 ] && [ "$DAMAGED" -eq 0 ]; } && SUCCESS=1
+
+if [ "$SUCCESS" -eq 1 ]; then
+    echo ">>> ${CONFIG}: slice ${PART}/24 verified OK"
+else
+    echo "!!! ${CONFIG}: slice ${PART}/24 verification FAILED (rc=$RC damaged=$DAMAGED)"
+fi
+
+# --- best-effort metrics push (same pipeline as restic-metrics-push) ---
+if command -v curl >/dev/null 2>&1; then
+    VM_URL="http://${VM_HOST}:${VM_PORT}/api/v1/import"
+    INSTANCE="${RESTIC_METRICS_INSTANCE:-hensing-mbp}"
+    NOW_S=$(date +%s)
+    NOW_MS=$(( NOW_S * 1000 ))
+    PAYLOAD="$(mktemp)"
+    {
+        echo "{\"metric\":{\"__name__\":\"restic_verify_data_success\",\"instance\":\"${INSTANCE}\",\"config\":\"${CONFIG}\"},\"values\":[${SUCCESS}],\"timestamps\":[${NOW_MS}]}"
+        echo "{\"metric\":{\"__name__\":\"restic_verify_data_damaged\",\"instance\":\"${INSTANCE}\",\"config\":\"${CONFIG}\"},\"values\":[${DAMAGED}],\"timestamps\":[${NOW_MS}]}"
+        echo "{\"metric\":{\"__name__\":\"restic_verify_data_last_run_timestamp\",\"instance\":\"${INSTANCE}\",\"config\":\"${CONFIG}\"},\"values\":[${NOW_S}],\"timestamps\":[${NOW_MS}]}"
+    } > "$PAYLOAD"
+    curl -fsS -m 15 --retry 3 -X POST -H "Content-Type: application/json" \
+        --data-binary @"$PAYLOAD" "$VM_URL" > /dev/null 2>&1
+    rm -f "$PAYLOAD"
+fi
+
+exit "$RC"
