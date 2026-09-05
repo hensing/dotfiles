@@ -1,12 +1,26 @@
 #!/bin/bash
 set -o pipefail
 
+# A full --checksum pass over a multi-TB library can run for hours. Re-exec
+# under caffeinate so a laptop sleep cycle doesn't kill the run partway
+# through -- a sleep/wake mid-transfer drops the SSH connection, and without
+# keepalives (below) the rsync process can hang indefinitely without ever
+# noticing the connection is gone (observed live: 4+ hours hung, 20s total
+# CPU time, after a sleep/wake at 03:01).
+if [ -z "$PHOTOS_PUSH_CAFFEINATED" ]; then
+    export PHOTOS_PUSH_CAFFEINATED=1
+    exec caffeinate -dis "$0" "$@"
+fi
+
 # --- CONFIGURATION ---
 REMOTE_HOST="truenas"
 PHOTO_MOUNT="/Volumes/Photos"
 CATALOG_SRC="$HOME/Pictures/Lightroom"
 REMOTE_MAC_DIR="/mnt/storage/photos/mac/"
 REMOTE_CATALOG_DIR="/mnt/storage/photos/catalog/"
+REMOTE_MAC_BACKUP_DIR="/mnt/storage/photos/archive/mac-removed"
+REMOTE_ARCHIVE_DIR="/mnt/storage/photos/archive"
+REMOTE_PARTIAL_DIR="/mnt/storage/photos/.rsync-partial"
 EXCLUDE_FILE="$(dirname "$0")/restic-excludes.txt"
 
 RSYNC_BIN="/opt/homebrew/bin/rsync"
@@ -14,13 +28,18 @@ RSYNC_BIN="/opt/homebrew/bin/rsync"
 
 # --- ARGS ---
 DRY_RUN=()
+CHECKSUM_OPT=()
+SUBDIRS=()
+USAGE="usage: $(basename "$0") [--dry-run] [--checksum] [SUBDIR...]"
 while [ $# -gt 0 ]; do
     case "$1" in
         -n|--dry-run) DRY_RUN=(--dry-run) ;;
-        -h|--help) echo "usage: $(basename "$0") [--dry-run]"; exit 0 ;;
-        *) echo "$(basename "$0"): unknown argument '$1'" >&2
-           echo "usage: $(basename "$0") [--dry-run]" >&2
-           exit 2 ;;
+        --checksum) CHECKSUM_OPT=(--checksum) ;;
+        -h|--help) echo "$USAGE"; exit 0 ;;
+        -*) echo "$(basename "$0"): unknown argument '$1'" >&2
+            echo "$USAGE" >&2
+            exit 2 ;;
+        *) SUBDIRS+=("$1") ;;
     esac
     shift
 done
@@ -30,8 +49,7 @@ mkdir -p "$LOG_DIR"
 TS="$(date +%Y%m%d-%H%M%S)"
 
 # mac/ and catalog/ under /mnt/storage/photos are true 1:1 mirrors of the
-# drive and the Lightroom catalog respectively (see bin/reorg_photos_nas for
-# the one-time split that made this true) -- everything else on the NAS
+# drive and the Lightroom catalog respectively -- everything else on the NAS
 # (archive/) is curated by hand and this script never touches it.
 #
 # --iconv=utf-8-mac,utf-8: macOS/APFS stores umlaut filenames in NFD; the NAS
@@ -39,18 +57,76 @@ TS="$(date +%Y%m%d-%H%M%S)"
 # folder as brand new and re-uploads it as a duplicate instead of recognizing
 # it already exists (confirmed live against the "Eivör" folder).
 #
-# --checksum: once encoding is fixed, most already-transferred files still
-# differ only in mtime (an artifact of the old Windows-based sync), which
-# would otherwise force a near-total re-transfer under the default mtime+size
-# quick check. --checksum reads content locally on each end (no extra network
-# cost beyond real diffs) but is I/O-bound and slow on the first pass over a
-# multi-TB library -- expected.
+# --checksum (opt-in via --checksum flag, not on by default): needed once to
+# correct mtime drift left over from the old Windows-based sync -- rsync
+# updates a file's mtime (via -t) to match the source even when it skips
+# re-transferring identical content, so a single --checksum run fixes every
+# mismatched mtime as a side effect. After that, the default quick check
+# (size+mtime, pure stat() -- no file content read at all) is both accurate
+# and vastly faster, so it's the default. Pass --checksum again for occasional
+# full re-verification; --checksum reads content locally on each end (no
+# extra network cost beyond real diffs) but is I/O-bound and slow over a
+# multi-TB library -- expected, and only worth paying for when you actually
+# want that guarantee.
 #
 # --delete: safe here specifically because mac/ and catalog/ are true 1:1
 # mirrors (drive/catalog are authoritative). Never add --delete against
 # archive/.
-RSYNC_OPTS=(-rlt --iconv=utf-8-mac,utf-8 --checksum --delete --max-delete=1000
-            --exclude-from="$EXCLUDE_FILE" -P "${DRY_RUN[@]}")
+#
+# -e "ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=3": without this,
+# a dropped connection (network blip, sleep/wake) leaves rsync blocked on a
+# read/write that will never complete -- it can hang for hours with no
+# indication anything is wrong (observed live). This makes ssh notice a dead
+# connection within ~90s and exit instead.
+#
+# --fuzzy --fuzzy --compare-dest=...: the actual bottleneck here is the
+# network link (VPN over the internet), not local disk, so it's worth
+# spending a little local lookup effort to avoid re-uploading content that
+# already exists somewhere on the NAS. NOTE the real (narrow) scope of this:
+# a single --fuzzy only searches the *same directory* as a missing
+# destination file for a same-size/similarly-named basis to diff against; it
+# does NOT scan the whole tree. Doubling it additionally checks the matching
+# relative-path position under each --compare-dest (multiple are allowed;
+# rsync tries them in order). REMOTE_MAC_BACKUP_DIR (archive/mac-removed/)
+# is listed first because it preserves a displaced file's exact former
+# relative path, so this specifically helps "a file reappears where it was
+# previously removed from" -- pointing --compare-dest at REMOTE_ARCHIVE_DIR
+# (archive/ itself) instead/only would look up the wrong path entirely
+# (archive/foo/bar.jpg, not archive/mac-removed/foo/bar.jpg) and never match.
+# REMOTE_ARCHIVE_DIR is also included per the user's request, for the rarer
+# case something reappears at a path matching hand-curated archive content.
+# Neither solves general reorganization (moving a file to an unrelated new
+# directory); that needs bin/track_photo_moves.
+# --partial-dir="$REMOTE_PARTIAL_DIR": without this, an interrupted transfer's
+# incomplete data sits at its real destination filename (rsync's default
+# --partial behavior). On the mac/ leg, the *next* run then has to overwrite
+# that same path to finish the transfer -- and since --backup-dir fires on
+# any overwrite, that incomplete partial data would get swept into
+# archive/mac-removed/ right alongside genuinely-removed content, polluting
+# the archive with junk. Pointing partial-dir at a separate location outside
+# mac/, catalog/, and archive/ means in-progress data never touches the
+# destination tree (so --backup-dir/--compare-dest never see it) until the
+# transfer completes, at which point rsync moves it into place in one step.
+COMMON_OPTS=(-rlt --iconv=utf-8-mac,utf-8 --delete --max-delete=1000
+             -e "ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=3"
+             --fuzzy --fuzzy
+             --compare-dest="$REMOTE_MAC_BACKUP_DIR" --compare-dest="$REMOTE_ARCHIVE_DIR"
+             --partial-dir="$REMOTE_PARTIAL_DIR"
+             --exclude-from="$EXCLUDE_FILE" -P "${DRY_RUN[@]}" "${CHECKSUM_OPT[@]}")
+
+# mac/ leg only: --backup-dir moves anything the mirror would otherwise
+# remove or overwrite into archive/mac-removed/ instead -- nothing this
+# script touches on the mac/ leg is ever truly deleted (user: "that way i
+# cannot delete something by accident"). Must be an absolute path -- a
+# relative one resolves relative to the destination dir (i.e. inside mac/
+# itself), which is wrong. If the same relative path is displaced again on a
+# later run, the previous backup there is overwritten (only the
+# most-recently-displaced version survives) -- by design, per user.
+# catalog/ leg intentionally does NOT get this: the Lightroom catalog churns
+# constantly with its own temp/preview files, and archiving every internal
+# change would just be noise -- user's call to keep it a strict mirror.
+MAC_OPTS=("${COMMON_OPTS[@]}" --backup --backup-dir="$REMOTE_MAC_BACKUP_DIR")
+CATALOG_OPTS=("${COMMON_OPTS[@]}")
 
 # Refuse to run a --delete-enabled push against a source that looks empty or
 # barely populated -- guards against a failed/partial mount silently wiping
@@ -59,21 +135,63 @@ RSYNC_OPTS=(-rlt --iconv=utf-8-mac,utf-8 --checksum --delete --max-delete=1000
 MIN_ENTRIES=20
 
 check_not_suspiciously_empty() {
-    local path="$1" label="$2"
+    local path="$1" label="$2" min="${3:-$MIN_ENTRIES}"
     local count
     count=$(find "$path" -mindepth 1 -maxdepth 2 2>/dev/null | wc -l | tr -d ' ')
-    if [ "$count" -lt "$MIN_ENTRIES" ]; then
-        echo "!!! $label has only $count entries -- refusing to run a --delete push (looks unmounted/empty)." >&2
+    if [ "$count" -lt "$min" ]; then
+        echo "!!! $label has only $count entries (need >= $min) -- refusing to run a --delete push (looks unmounted/empty)." >&2
         return 1
     fi
     return 0
 }
 
+# One or more subdir arguments means the caller is manually resuming an
+# interrupted --checksum pass on just the remaining subtrees (see comment on
+# --checksum above -- rsync's checksum comparison has no resume mechanism of
+# its own, so this is the escape hatch), possibly several in one go (e.g.
+# `Photos/2024 Photos/2025 Photos/2026`) instead of one invocation per year.
+# It only makes sense for the mac/ leg. The full MIN_ENTRIES threshold is
+# relaxed to just "at least 1 entry" here rather than skipped outright -- a
+# small dated-event folder legitimately might not clear MIN_ENTRIES, but a
+# --delete-enabled push against a truly empty/missing path (typo, partial
+# mount) should still be refused, same as the unscoped legs below. Each
+# subdir is independent: one failing or not being found doesn't stop the
+# rest from being attempted.
+if [ ${#SUBDIRS[@]} -gt 0 ]; then
+    FAILED=()
+    for SUBDIR in "${SUBDIRS[@]}"; do
+        SAFE_NAME="${SUBDIR//\//_}"
+        echo "--- Scoped push: external drive ($SUBDIR) -> mac/$SUBDIR ---"
+        if [ ! -d "$PHOTO_MOUNT/$SUBDIR" ]; then
+            echo "ERROR: '$PHOTO_MOUNT/$SUBDIR' not found -- skipping." >&2
+            FAILED+=("$SUBDIR")
+        elif ! check_not_suspiciously_empty "$PHOTO_MOUNT/$SUBDIR" "$PHOTO_MOUNT/$SUBDIR" 1; then
+            FAILED+=("$SUBDIR")
+        else
+            LOG="$LOG_DIR/mac-$TS-$SAFE_NAME.log"
+            "$RSYNC_BIN" "${MAC_OPTS[@]}" "$PHOTO_MOUNT/$SUBDIR/" "${REMOTE_HOST}:${REMOTE_MAC_DIR}${SUBDIR}" 2>&1 | tee "$LOG"
+            MAC_RC=$?
+            if [ "$MAC_RC" -ne 0 ]; then
+                echo "!!! mac/$SUBDIR push exited with status $MAC_RC -- see $LOG" >&2
+                FAILED+=("$SUBDIR")
+            fi
+            FAILED+=("$SUBDIR")
+        fi
+        echo ""
+    done
+    echo "--- Scoped run finished (catalog/ leg skipped) ---"
+    if [ ${#FAILED[@]} -gt 0 ]; then
+        echo "!!! ${#FAILED[@]} of ${#SUBDIRS[@]} subdir(s) failed or were not found: ${FAILED[*]}" >&2
+        exit 1
+    fi
+    exit 0
+fi
+
 echo "--- [1/2] Pushing external drive -> mac/ ---"
 if [ -d "$PHOTO_MOUNT" ]; then
     if check_not_suspiciously_empty "$PHOTO_MOUNT" "$PHOTO_MOUNT"; then
         LOG="$LOG_DIR/mac-$TS.log"
-        "$RSYNC_BIN" "${RSYNC_OPTS[@]}" "$PHOTO_MOUNT/" "${REMOTE_HOST}:${REMOTE_MAC_DIR}" 2>&1 | tee "$LOG"
+        "$RSYNC_BIN" "${MAC_OPTS[@]}" "$PHOTO_MOUNT/" "${REMOTE_HOST}:${REMOTE_MAC_DIR}" 2>&1 | tee "$LOG"
         MAC_RC=$?
         [ "$MAC_RC" -ne 0 ] && echo "!!! mac/ push exited with status $MAC_RC -- see $LOG" >&2
     fi
@@ -86,7 +204,7 @@ echo "--- [2/2] Pushing Lightroom catalog -> catalog/ ---"
 if [ -d "$CATALOG_SRC" ]; then
     if check_not_suspiciously_empty "$CATALOG_SRC" "$CATALOG_SRC"; then
         LOG="$LOG_DIR/catalog-$TS.log"
-        "$RSYNC_BIN" "${RSYNC_OPTS[@]}" "$CATALOG_SRC/" "${REMOTE_HOST}:${REMOTE_CATALOG_DIR}" 2>&1 | tee "$LOG"
+        "$RSYNC_BIN" "${CATALOG_OPTS[@]}" "$CATALOG_SRC/" "${REMOTE_HOST}:${REMOTE_CATALOG_DIR}" 2>&1 | tee "$LOG"
         CAT_RC=$?
         [ "$CAT_RC" -ne 0 ] && echo "!!! catalog/ push exited with status $CAT_RC -- see $LOG" >&2
     fi

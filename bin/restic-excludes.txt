@@ -4,8 +4,9 @@
 ._*
 .Spotlight-V100
 .Trashes
-.DocumentRevisions-V100
+.DocumentRevisions-V100*
 .TemporaryItems
+.fseventsd
 
 # Lightroom Bloat (previews etc)
 *.lrdata
