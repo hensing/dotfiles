@@ -58,26 +58,14 @@ VM_HOST="${RESTIC_METRICS_HOST:-100.64.131.43}"
 VM_PORT="${RESTIC_METRICS_PORT:-8428}"
 
 # --- pre-flight: is the metrics host reachable? ---
-# This is a ~2h job; if VictoriaMetrics is unreachable (not on the VPN / netbird
-# mesh) the verify still runs but its success/damaged result never lands in
-# Grafana. Warn up front -- and when run interactively, ask before spending the
-# time. Non-interactive (cron) just warns and continues; the push is best-effort
-# anyway. Set RESTIC_METRICS_ASSUME_YES=1 to skip the prompt.
-if command -v curl >/dev/null 2>&1 \
-   && ! curl -fsS --connect-timeout 3 -m 5 -o /dev/null \
-        "http://${VM_HOST}:${VM_PORT}/health" 2>/dev/null
-then
-    echo "!!! ${CONFIG}: metrics host ${VM_HOST}:${VM_PORT} unreachable -- VPN / netbird down?" >&2
-    echo "    The verify will still run, but its result will not be recorded in Grafana." >&2
-    if [ -t 0 ] && [ -z "${RESTIC_METRICS_ASSUME_YES:-}" ]; then
-        printf "    Proceed anyway? [y/N] " >&2
-        read -r _ans
-        case "${_ans:-}" in
-            [yY]|[yY][eE][sS]) ;;
-            *) echo "    aborted." >&2; exit 1 ;;
-        esac
-    fi
-fi
+# This is a ~2h job; if VictoriaMetrics is unreachable the verify still runs
+# but its result never lands in Grafana. Declining here exits 3 (not 1, and
+# not 2 -- that's already "bad usage" above) -- distinct from "the verify ran
+# and failed" (exit 1, below) -- so a caller like backup_photos can tell
+# "skipped, no signal either way" apart from a real failure and not block
+# snapshot pruning over an unrelated VPN hiccup.
+. "$(dirname "$0")/restic-common.sh"
+metrics_preflight "verify" "$VM_HOST" "$VM_PORT" || exit 3
 
 LOG_DIR="${RESTIC_LOG_DIR:-$HOME/Library/Logs/restic}"
 mkdir -p "$LOG_DIR"
@@ -95,15 +83,21 @@ if [ -r "$PART_FILE" ]; then
 fi
 case "$LAST" in ''|*[!0-9]*) LAST=0 ;; esac
 PART=$(( (LAST % 24) + 1 ))
-echo "$PART" > "$PART_FILE"
 
 echo ">>> ${CONFIG}: verifying pack contents, slice ${PART}/24  (repo: $REPO)"
 restic -r "$REPO" check --read-data-subset="${PART}/24" \
     -o rclone.connections=8 --verbose 2>&1 | tee "$LOG"
 RC=${PIPESTATUS[0]}
 
+# Only advance the rotation now that restic has actually run to completion
+# (whatever the result) -- writing this earlier meant a run killed partway
+# through (sleep, dropped SSH, cron timeout) would still consume this
+# slice's turn, silently skipping its real verification for a full 24-run
+# cycle.
+echo "$PART" > "$PART_FILE"
+
 DAMAGED=0
-grep -qiE 'unexpected file size|repository contains errors|repository is damaged|damaged pack file' "$LOG" && DAMAGED=1
+grep -qiE "$RESTIC_DAMAGED_PATTERN" "$LOG" && DAMAGED=1
 SUCCESS=0
 { [ "$RC" -eq 0 ] && [ "$DAMAGED" -eq 0 ]; } && SUCCESS=1
 
@@ -130,4 +124,9 @@ if command -v curl >/dev/null 2>&1; then
     rm -f "$PAYLOAD"
 fi
 
-exit "$RC"
+# Exit 0 only on genuine success (both a clean restic exit code AND no
+# damaged-pack text match) -- exiting the raw $RC here would let a
+# DAMAGED=1-but-rc=0 result (the exact pcloud-truncation case this codebase
+# has hit before) look like success to callers such as backup_photos.
+[ "$SUCCESS" -eq 1 ] && exit 0
+exit 1

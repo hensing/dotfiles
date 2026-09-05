@@ -38,25 +38,12 @@ fi
 # backup_photos pushes run status to VictoriaMetrics (restic-metrics-push). If
 # it's unreachable -- not on the VPN / netbird mesh -- the backup still runs but
 # Grafana won't see this run (the staleness alert will fire). Warn; interactively,
-# ask first. Cron (no TTY) warns and proceeds. RESTIC_METRICS_ASSUME_YES=1 skips
-# the prompt.
-VM_HOST="${RESTIC_METRICS_HOST:-100.64.131.43}"
-VM_PORT="${RESTIC_METRICS_PORT:-8428}"
-if command -v curl >/dev/null 2>&1 \
-   && ! curl -fsS --connect-timeout 3 -m 5 -o /dev/null \
-        "http://${VM_HOST}:${VM_PORT}/health" 2>/dev/null
-then
-    echo "!!! metrics host ${VM_HOST}:${VM_PORT} unreachable -- VPN / netbird down?" >&2
-    echo "    The backup will still run, but this run won't be recorded in Grafana." >&2
-    if [ -t 0 ] && [ -z "${RESTIC_METRICS_ASSUME_YES:-}" ]; then
-        printf "    Proceed anyway? [y/N] " >&2
-        read -r _ans
-        case "${_ans:-}" in
-            [yY]|[yY][eE][sS]) ;;
-            *) echo "    aborted." >&2; exit 1 ;;
-        esac
-    fi
-fi
+# ask first (declining this top-level check just aborts -- unlike
+# restic-verify-data's own preflight, there's no caller here that needs to
+# distinguish "skipped" from "failed"). Cron (no TTY) warns and proceeds.
+# RESTIC_METRICS_ASSUME_YES=1 skips the prompt.
+. "$(dirname "$0")/restic-common.sh"
+metrics_preflight "backup" || exit 1
 
 # --- RCLONE TUNING (spotty pcloud path, USA -> EU) ---
 # These variables are picked up automatically by rclone. pcloud's uploadfile
@@ -104,7 +91,7 @@ check_and_heal() {
     restic -r "$repo" check --verbose 2>&1 | tee "$check_log"
     rc=$?
 
-    grep -qiE 'unexpected file size|repository contains errors|repository is damaged|damaged pack file' "$check_log" || return "$rc"
+    grep -qiE "$RESTIC_DAMAGED_PATTERN" "$check_log" || return "$rc"
 
     REPO_DAMAGED=1
     echo "!!! ${cfg}: damaged pack files detected -- attempting lossless in-place heal"
@@ -124,7 +111,7 @@ check_and_heal() {
     local recheck_log="$LOG_DIR/${cfg}-autorepair-check-$TS.log"
     restic -r "$repo" check --verbose 2>&1 | tee "$recheck_log"
     rc=$?
-    if [ "$rc" -eq 0 ] && ! grep -qiE 'unexpected file size|repository contains errors|repository is damaged|damaged pack file' "$recheck_log"; then
+    if [ "$rc" -eq 0 ] && ! grep -qiE "$RESTIC_DAMAGED_PATTERN" "$recheck_log"; then
         echo ">>> ${cfg}: auto-heal succeeded"
     else
         echo "!!! ${cfg}: auto-heal did NOT clear all errors -- manual intervention required"
@@ -158,7 +145,15 @@ if [ -d "$HOME/Pictures/Lightroom" ]; then
     if [ "$DO_VERIFY" -eq 1 ]; then
         "$(dirname "$0")/restic-verify-data" catalog "$REPO_CAT"
         CAT_SUBSET_RC=$?
-        [ "$CAT_SUBSET_RC" -ne 0 ] && CAT_CHECK_RC=$CAT_SUBSET_RC
+        # exit 3 = metrics preflight declined, not a verification failure --
+        # note it but don't block forget over an unrelated VPN hiccup. Any
+        # other non-zero (1 = ran and failed/damaged; 2 = bad usage, shouldn't
+        # happen here) is a real problem.
+        if [ "$CAT_SUBSET_RC" -eq 3 ]; then
+            echo "!!! catalog: deep verify skipped (metrics preflight declined) -- not treated as a failure" >&2
+        elif [ "$CAT_SUBSET_RC" -ne 0 ]; then
+            CAT_CHECK_RC=$CAT_SUBSET_RC
+        fi
     fi
 
     # forget only runs on a successful backup whose repo also passed its
@@ -212,7 +207,12 @@ if [ -d "$PHOTO_MOUNT" ]; then
     if [ "$DO_VERIFY" -eq 1 ]; then
         "$(dirname "$0")/restic-verify-data" photos "$REPO_RAW"
         RAW_SUBSET_RC=$?
-        [ "$RAW_SUBSET_RC" -ne 0 ] && RAW_CHECK_RC=$RAW_SUBSET_RC
+        # See the catalog block above for why exit 3 is handled separately.
+        if [ "$RAW_SUBSET_RC" -eq 3 ]; then
+            echo "!!! photos: deep verify skipped (metrics preflight declined) -- not treated as a failure" >&2
+        elif [ "$RAW_SUBSET_RC" -ne 0 ]; then
+            RAW_CHECK_RC=$RAW_SUBSET_RC
+        fi
     fi
 
     # See the catalog block: forget needs both a clean backup and a clean check.
