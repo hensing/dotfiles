@@ -19,7 +19,6 @@ CATALOG_SRC="$HOME/Pictures/Lightroom"
 REMOTE_MAC_DIR="/mnt/storage/photos/mac/"
 REMOTE_CATALOG_DIR="/mnt/storage/photos/catalog/"
 REMOTE_MAC_BACKUP_DIR="/mnt/storage/photos/archive/mac-removed"
-REMOTE_ARCHIVE_DIR="/mnt/storage/photos/archive"
 REMOTE_PARTIAL_DIR="/mnt/storage/photos/.rsync-partial"
 EXCLUDE_FILE="$(dirname "$0")/restic-excludes.txt"
 
@@ -79,24 +78,20 @@ TS="$(date +%Y%m%d-%H%M%S)"
 # indication anything is wrong (observed live). This makes ssh notice a dead
 # connection within ~90s and exit instead.
 #
-# --fuzzy --fuzzy --compare-dest=...: the actual bottleneck here is the
-# network link (VPN over the internet), not local disk, so it's worth
-# spending a little local lookup effort to avoid re-uploading content that
-# already exists somewhere on the NAS. NOTE the real (narrow) scope of this:
-# a single --fuzzy only searches the *same directory* as a missing
-# destination file for a same-size/similarly-named basis to diff against; it
-# does NOT scan the whole tree. Doubling it additionally checks the matching
-# relative-path position under each --compare-dest (multiple are allowed;
-# rsync tries them in order). REMOTE_MAC_BACKUP_DIR (archive/mac-removed/)
-# is listed first because it preserves a displaced file's exact former
-# relative path, so this specifically helps "a file reappears where it was
-# previously removed from" -- pointing --compare-dest at REMOTE_ARCHIVE_DIR
-# (archive/ itself) instead/only would look up the wrong path entirely
-# (archive/foo/bar.jpg, not archive/mac-removed/foo/bar.jpg) and never match.
-# REMOTE_ARCHIVE_DIR is also included per the user's request, for the rarer
-# case something reappears at a path matching hand-curated archive content.
-# Neither solves general reorganization (moving a file to an unrelated new
-# directory); that needs bin/track_photo_moves.
+# REMOVED --fuzzy/--compare-dest (tried, then reverted): the idea was to
+# avoid re-uploading content that already exists elsewhere on the NAS by
+# letting rsync's delta-transfer use a same-size/similarly-named file
+# elsewhere as a "basis" to diff against. In practice it crashed a real run:
+# "rsync: [receiver] lseek returned X, not Y: Invalid argument (22)" --
+# --fuzzy found an unrelated file (DSC*.ARW is an extremely common Sony
+# filename, and --compare-dest included the whole archive/ tree, full of
+# unrelated same-pattern files from other shoots) and used it as a delta
+# basis; that file's actual on-disk size didn't match what rsync's basis
+# selection expected, and the receiver died mid-transfer (observed live,
+# 2026-09-05, Photos/2026 push). Not worth the crash risk on every new
+# ARW/MP4 for a bandwidth optimization -- bin/track_photo_moves already
+# solves the actual "avoid re-upload after reorganizing" need safely, via
+# exact inode identity rather than fuzzy name/size guessing.
 # --partial-dir="$REMOTE_PARTIAL_DIR": without this, an interrupted transfer's
 # incomplete data sits at its real destination filename (rsync's default
 # --partial behavior). On the mac/ leg, the *next* run then has to overwrite
@@ -105,12 +100,10 @@ TS="$(date +%Y%m%d-%H%M%S)"
 # archive/mac-removed/ right alongside genuinely-removed content, polluting
 # the archive with junk. Pointing partial-dir at a separate location outside
 # mac/, catalog/, and archive/ means in-progress data never touches the
-# destination tree (so --backup-dir/--compare-dest never see it) until the
-# transfer completes, at which point rsync moves it into place in one step.
+# destination tree (so --backup-dir never sees it) until the transfer
+# completes, at which point rsync moves it into place in one step.
 COMMON_OPTS=(-rlt --iconv=utf-8-mac,utf-8 --delete --max-delete=1000
              -e "ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=3"
-             --fuzzy --fuzzy
-             --compare-dest="$REMOTE_MAC_BACKUP_DIR" --compare-dest="$REMOTE_ARCHIVE_DIR"
              --partial-dir="$REMOTE_PARTIAL_DIR"
              --exclude-from="$EXCLUDE_FILE" -P "${DRY_RUN[@]}" "${CHECKSUM_OPT[@]}")
 
@@ -175,7 +168,6 @@ if [ ${#SUBDIRS[@]} -gt 0 ]; then
                 echo "!!! mac/$SUBDIR push exited with status $MAC_RC -- see $LOG" >&2
                 FAILED+=("$SUBDIR")
             fi
-            FAILED+=("$SUBDIR")
         fi
         echo ""
     done
