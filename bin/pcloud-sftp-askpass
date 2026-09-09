@@ -1,5 +1,5 @@
 #!/bin/sh
-# SSH_ASKPASS program for the `pcloud-sftp` connection.
+# SSH_ASKPASS program for the pCloud native SFTP endpoint (esftp.pcloud.com).
 #
 # OpenSSH has no ssh_config directive for a password (no PasswordCommand), so
 # non-interactive password auth goes through SSH_ASKPASS: with no tty -- or with
@@ -7,6 +7,8 @@
 # its stdout. ssh passes the human prompt text as $1; we ignore it and just
 # print the stored pCloud account password.
 #
-# Wired up by bin/pcloud-sftp (which sets SSH_ASKPASS to this file). Used by
-# restic's sftp backend in bin/restic-verify-data.
+# The callers (backup_photos, restic-verify-data, restic-metrics-push) export
+# SSH_ASKPASS=<abs path to this file> + SSH_ASKPASS_REQUIRE=force before invoking
+# restic's sftp backend, which reaches the repo as sftp:pcloud-sftp:/... via the
+# `pcloud-sftp` Host alias in ~/.ssh/config.
 exec "$(dirname "$0")/keyring_helper" pcloud

@@ -9,14 +9,21 @@
 #
 # Repo passwords never touch this script — restic resolves
 # RESTIC_PASSWORD_COMMAND (keyring_helper) itself, and this script only reads
-# restic's own JSON output afterward.
+# restic's own JSON output afterward. The `restic stats`/`snapshots` calls go to
+# the sftp repo, so ssh needs the askpass wiring; backup_photos exports it, and
+# the fallbacks below cover a standalone run.
 
 set -uo pipefail
 
 VM_URL="http://100.64.131.43:8428/api/v1/import"  # pouchmaster netbird_ip
-INSTANCE="hensing-mbp"
+INSTANCE="${RESTIC_METRICS_INSTANCE:-hensing-mbp}"
 STATE_DIR="$HOME/.cache/restic-metrics"
 mkdir -p "$STATE_DIR"
+
+# sftp backend auth -- no-op when a parent already exported these.
+export SSH_ASKPASS="${SSH_ASKPASS:-$(CDPATH= cd "$(dirname "$0")" && pwd)/pcloud-sftp-askpass}"
+export SSH_ASKPASS_REQUIRE="${SSH_ASKPASS_REQUIRE:-force}"
+export DISPLAY="${DISPLAY:-:0}"
 
 NOW_S=$(date +%s)
 NOW_MS=$(( NOW_S * 1000 ))
@@ -26,25 +33,38 @@ SNAP_JSON_FILE=$(mktemp)
 trap 'rm -f "$PAYLOAD" "$SNAP_JSON_FILE"' EXIT
 
 if [ "$1" = "pcloud" ]; then
-  ABOUT_JSON_FILE=$(mktemp)
-  trap 'rm -f "$PAYLOAD" "$SNAP_JSON_FILE" "$ABOUT_JSON_FILE"' EXIT
-  if rclone about pcloud: --json > "$ABOUT_JSON_FILE" 2>/dev/null; then
-    python3 - "$NOW_MS" "$INSTANCE" "$ABOUT_JSON_FILE" <<'PYEOF' > "$PAYLOAD"
+  # pcloud account usage via the public API (was: `rclone about pcloud:`).
+  # The account is password-only -- reuse the ssh password from keyring_helper,
+  # kept off argv by piping it to curl's --data-urlencode @- (POST body, not URL).
+  PCLOUD_USER="srv.pcloud@h.dktn.info"
+  USERINFO_FILE=$(mktemp)
+  trap 'rm -f "$PAYLOAD" "$SNAP_JSON_FILE" "$USERINFO_FILE"' EXIT
+  if command -v keyring_helper >/dev/null 2>&1 \
+     && keyring_helper pcloud | curl -fsS -m 15 --retry 2 \
+            --data-urlencode "username=${PCLOUD_USER}" \
+            --data-urlencode "password@-" \
+            "https://eapi.pcloud.com/userinfo" > "$USERINFO_FILE" 2>/dev/null
+  then
+    python3 - "$NOW_MS" "$INSTANCE" "$USERINFO_FILE" <<'PYEOF' > "$PAYLOAD"
 import json
 import sys
 
-now_ms, instance, about_file = sys.argv[1:4]
+now_ms, instance, userinfo_file = sys.argv[1:4]
 
-with open(about_file) as f:
+with open(userinfo_file) as f:
     d = json.load(f)
 
-for field, metric in (("used", "pcloud_account_used_bytes"), ("total", "pcloud_account_total_bytes")):
-    val = d.get(field)
-    if val is not None:
-        print(
-            '{"metric":{"__name__":"%s","instance":"%s"},"values":[%s],"timestamps":[%s]}'
-            % (metric, instance, val, now_ms)
-        )
+# pcloud sets "result" to 0 on success; anything else (bad login, TFA required)
+# means the quota fields are absent or stale -- skip quietly, same as a failed
+# `rclone about` did.
+if not d.get("result", 0):
+    for field, metric in (("usedquota", "pcloud_account_used_bytes"), ("quota", "pcloud_account_total_bytes")):
+        val = d.get(field)
+        if val is not None:
+            print(
+                '{"metric":{"__name__":"%s","instance":"%s"},"values":[%s],"timestamps":[%s]}'
+                % (metric, instance, val, now_ms)
+            )
 PYEOF
   fi
   [ -s "$PAYLOAD" ] && curl -fsS -m 15 --retry 3 -X POST -H "Content-Type: application/json" --data-binary @"$PAYLOAD" "$VM_URL" > /dev/null

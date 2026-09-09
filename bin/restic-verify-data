@@ -40,8 +40,8 @@
 #   RESTIC_METRICS_INSTANCE=pouchmaster
 #   17 3 * * 0 ~/.dotfiles/bin/restic-verify-data catalog ; ~/.dotfiles/bin/restic-verify-data photos
 #
-# (No SSH_ASKPASS wiring needed in crontab -- bin/pcloud-sftp sets it up itself;
-# it just needs `keyring_helper pcloud` to work in the cron environment.)
+# (No SSH_ASKPASS wiring needed in crontab -- this script exports it itself; it
+# just needs `keyring_helper pcloud` to work in the cron environment.)
 
 set -uo pipefail
 
@@ -74,13 +74,15 @@ if [ -z "${RESTIC_PASSWORD_COMMAND:-}" ] && [ -z "${RESTIC_PASSWORD_FILE:-}" ]; 
     export RESTIC_PASSWORD_COMMAND="keyring_helper restic_photos"
 fi
 
-# Native sftp transport to pcloud (no rclone). bin/pcloud-sftp opens the sftp
-# subsystem on the `pcloud-sftp` ssh alias and feeds it the pCloud account
-# password from `keyring_helper pcloud` via SSH_ASKPASS, so cron never prompts.
-# Reads can't corrupt the repo, so we don't throttle connections as hard as the
-# upload path does. Resolve to an absolute path -- restic execs this string as-is
-# and does not expand ~ or honour a later cwd change.
-SFTP_COMMAND="$(CDPATH= cd "$(dirname "$0")" && pwd)/pcloud-sftp"
+# Native sftp transport to pcloud (no rclone): restic reaches the repo as
+# sftp:pcloud-sftp:/... via the `pcloud-sftp` Host alias in ~/.ssh/config. The
+# endpoint is password-only and OpenSSH has no ssh_config password directive, so
+# ssh pulls the pCloud account password from `keyring_helper pcloud` through this
+# askpass helper. SSH_ASKPASS_REQUIRE=force (OpenSSH >= 8.4) makes it work with a
+# tty too; DISPLAY satisfies older builds. Absolute path -- ssh execs it as-is.
+export SSH_ASKPASS="$(CDPATH= cd "$(dirname "$0")" && pwd)/pcloud-sftp-askpass"
+export SSH_ASKPASS_REQUIRE=force
+export DISPLAY="${DISPLAY:-:0}"
 
 # VictoriaMetrics host (on the netbird mesh) -- probed pre-flight and pushed to
 # at the end.
@@ -116,7 +118,7 @@ PART=$(( (LAST % 24) + 1 ))
 
 echo ">>> ${CONFIG}: verifying pack contents, slice ${PART}/24  (repo: $REPO)"
 restic -r "$REPO" check --read-data-subset="${PART}/24" \
-    -o sftp.connections=8 -o sftp.command="$SFTP_COMMAND" --verbose 2>&1 | tee "$LOG"
+    -o sftp.connections=8 --verbose 2>&1 | tee "$LOG"
 RC=${PIPESTATUS[0]}
 
 # Only advance the rotation now that restic has actually run to completion

@@ -2,12 +2,25 @@
 set -o pipefail
 
 # --- CONFIGURATION ---
-REMOTE_PCLOUD="pcloud"
-REPO_CAT="rclone:${REMOTE_PCLOUD}:backup/restic_catalog"
-REPO_RAW="rclone:${REMOTE_PCLOUD}:backup/restic_photos"
+# Native sftp transport to pcloud (no rclone). Same account and files as the old
+# rclone `pcloud:backup/restic_*` paths -- that remote was rooted at a folder id
+# which resolves to /Backups/Macbook_Photos/backup when reached over sftp.
+REPO_BASE="sftp:pcloud-sftp:/Backups/Macbook_Photos/backup"
+REPO_CAT="$REPO_BASE/restic_catalog"
+REPO_RAW="$REPO_BASE/restic_photos"
 
-# Restic password
+# Restic repo password.
 export RESTIC_PASSWORD_COMMAND="keyring_helper restic_photos"
+
+# SSH auth for the sftp backend. pcloud's endpoint is password-only and OpenSSH
+# has no ssh_config password directive, so ssh pulls the pCloud account password
+# from `keyring_helper pcloud` via bin/pcloud-sftp-askpass. SSH_ASKPASS_REQUIRE=
+# force (OpenSSH >= 8.4) uses it even with a tty; DISPLAY satisfies older builds.
+# The `pcloud-sftp` Host alias (HostName esftp.pcloud.com, User the account
+# e-mail) must exist in ~/.ssh/config with its key in ~/.ssh/known_hosts.
+export SSH_ASKPASS="$(CDPATH= cd "$(dirname "$0")" && pwd)/pcloud-sftp-askpass"
+export SSH_ASKPASS_REQUIRE=force
+export DISPLAY="${DISPLAY:-:0}"
 
 # --- ARGS ---
 # --verify-data / -V: also run the slow deep pack-*content* check
@@ -45,24 +58,12 @@ fi
 . "$(dirname "$0")/restic-common.sh"
 metrics_preflight "backup" || exit 1
 
-# --- RCLONE TUNING (spotty pcloud path, USA -> EU) ---
-# These variables are picked up automatically by rclone. pcloud's uploadfile
-# endpoint drops connections mid-PUT on a congested transatlantic link and has
-# twice (2026-08-13, 2026-08-29) persisted a *truncated* object that restic's
-# post-upload verify did not catch. Serialising uploads and widening the retry
-# budget lowers the odds; check_and_heal() below is the safety net.
-export RCLONE_TRANSFERS=1                # was 2: one upload at a time, less connection pressure
-export RCLONE_CHECKERS=16
-export RCLONE_PCLOUD_HOSTNAME="eapi.pcloud.com"
-export RCLONE_BUFFER_SIZE="16M"
-export RCLONE_RETRIES=5
-# Keep low-level retries + timeouts short: a bad pcloud window is better handled
-# by failing fast and letting restic re-drive the pack on a fresh connection
-# than by grinding through 20 slow rclone retries (observed 2026-08-30).
-export RCLONE_LOW_LEVEL_RETRIES=10
-export RCLONE_TIMEOUT=120s
-export RCLONE_CONTIMEOUT=30s
-export RCLONE_EXPECT_CONTINUE_TIMEOUT=10s
+# Transport note: this still runs from the laptop over the congested USA->EU
+# link that twice (2026-08-13, -29) left a *truncated* pack pcloud's rclone
+# uploadfile endpoint had accepted. The sftp backend writes each pack to a temp
+# name and renames on success, which should make a dropped connection fail the
+# pack outright rather than persist a short one -- but that is unproven here, so
+# check_and_heal() below stays as the safety net.
 
 EXCLUDE_FILE="$(dirname "$0")/restic-excludes.txt"
 
@@ -73,11 +74,12 @@ TS="$(date +%Y%m%d-%H%M%S)"
 # check_and_heal <config> <repo> <src> <check_log> [heal-backup-opts...]
 #
 # Runs `restic check` and tees it to <check_log>. If the check reports damaged
-# pack files (pcloud truncation), attempts a *lossless* in-place heal while the
-# source is still attached: repair index (drops the broken packs from the index)
-# followed by a re-`backup` (re-uploads the now-missing blobs from <src>), then
-# re-checks. Never runs `repair snapshots --forget` or `prune` -- those lose
-# data and are left for manual review.
+# pack files (a truncated pack from a dropped transfer on the spotty link),
+# attempts a *lossless* in-place heal while the source is still attached: repair
+# index (drops the broken packs from the index) followed by a re-`backup`
+# (re-uploads the now-missing blobs from <src>), then re-checks. Never runs
+# `repair snapshots --forget` or `prune` -- those lose data and are left for
+# manual review.
 #
 # Sets global REPO_DAMAGED=1 if truncation was seen (whether or not the heal
 # cleared it). Returns the final check's exit code (non-zero if anything is
@@ -99,9 +101,7 @@ check_and_heal() {
     restic -r "$repo" repair index --verbose 2>&1 | tee "$LOG_DIR/${cfg}-autorepair-index-$TS.log"
 
     if [ -e "$src" ]; then
-        # --pack-size 4: small PUTs are far likelier to survive a bad pcloud
-        # window intact than the 16 MiB default (observed 2026-08-30).
-        restic -r "$repo" backup "$src" --verbose --pack-size 4 \
+        restic -r "$repo" backup "$src" --verbose \
             --exclude-file="$EXCLUDE_FILE" "${heal_opts[@]}" \
             2>&1 | tee "$LOG_DIR/${cfg}-autorepair-heal-$TS.log"
     else
@@ -125,16 +125,22 @@ echo "--- [1/2] Backing up Lightroom catalog ---"
 if [ -d "$HOME/Pictures/Lightroom" ]; then
     CAT_LOG="$LOG_DIR/catalog-backup-$TS.log"
     restic -r "$REPO_CAT" unlock 2>/dev/null
-    RCLONE_TRANSFERS=12 restic -r "$REPO_CAT" backup "$HOME/Pictures/Lightroom" \
+    # -o sftp.connections=8: the catalog is many small files, so extra parallel
+    # ssh channels help (default is 5). RAWs below stay at the default.
+    restic -r "$REPO_CAT" backup "$HOME/Pictures/Lightroom" \
         --verbose \
+        -o sftp.connections=8 \
         --exclude-file="$EXCLUDE_FILE" \
         --compression max \
         2>&1 | tee "$CAT_LOG"
     CAT_RC=$?
 
-    # test for connection issues
+    # rc=0 but restic logged a transient backend retry or a non-fatal error line
+    # -- still counts as a degraded run for the metrics event (the link is flaky
+    # enough to matter). Anchored patterns so a filename containing "error" in
+    # --verbose output doesn't trip it.
     CAT_DEGRADED=0
-    grep -qE 'ERROR|retrying|closed network connection' "$CAT_LOG" && CAT_DEGRADED=1
+    grep -qE 'returned error, retrying|^(error|Fatal):' "$CAT_LOG" && CAT_DEGRADED=1
 
     REPO_DAMAGED=0
     check_and_heal catalog "$REPO_CAT" "$HOME/Pictures/Lightroom" \
@@ -188,16 +194,15 @@ if [ -d "$PHOTO_MOUNT" ]; then
     echo "Drive detected. Starting RAW backup..."
     RAW_LOG="$LOG_DIR/photos-backup-$TS.log"
     restic -r "$REPO_RAW" unlock 2>/dev/null
-    # --pack-size 8 (half the 16 MiB default): shorter PUTs survive a spotty
-    # pcloud window far better. No --compression max: ARW files already compressed.
+    # Default 16 MiB packs. No --compression max: ARW files are already compressed.
     restic -r "$REPO_RAW" backup "$PHOTO_MOUNT" \
-        --verbose --pack-size 8 \
+        --verbose \
         --exclude-file="$EXCLUDE_FILE" \
         2>&1 | tee "$RAW_LOG"
     RAW_RC=$?
 
     RAW_DEGRADED=0
-    grep -qE 'ERROR|retrying|closed network connection' "$RAW_LOG" && RAW_DEGRADED=1
+    grep -qE 'returned error, retrying|^(error|Fatal):' "$RAW_LOG" && RAW_DEGRADED=1
 
     REPO_DAMAGED=0
     check_and_heal photos "$REPO_RAW" "$PHOTO_MOUNT" "$LOG_DIR/photos-check-$TS.log"
