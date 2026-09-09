@@ -4,20 +4,28 @@
 # Runs `restic check --read-data-subset=N/24`, advancing N by one each run so the
 # whole repo's pack *contents* get read over 24 runs (the plain per-run
 # `restic check` in backup_photos only verifies pack *sizes*). This is the slow
-# part -- ~2h per pass over the transatlantic pcloud link -- so it is NOT run by
-# a normal `backup_photos`; call it explicitly (`backup_photos --verify-data`)
-# or, better, from cron on a server. It only ever reads the pcloud repo: the
-# source drive (/Volumes/Photos) does not need to be attached.
+# part -- ~2h per pass over the pcloud link, less from an EU host -- so it is NOT
+# run by a normal `backup_photos`; call it explicitly (`backup_photos
+# --verify-data`) or, better, from cron on a server. It only ever reads the
+# pcloud repo: the source drive (/Volumes/Photos) does not need to be attached.
+#
+# Transport: restic's native sftp backend (no rclone), via a `pcloud-sftp` Host
+# alias in ~/.ssh/config -> esftp.pcloud.com. See the Server / cron notes below.
 #
 # Usage:
 #   restic-verify-data <config> [<repo>]
 #     config : photos | catalog   (label for logs + metrics)
 #     repo   : optional override of the default repo string for that config
 #
-# Server / cron: export RESTIC_PASSWORD_COMMAND or RESTIC_PASSWORD_FILE, have the
-# rclone `pcloud:` remote configured, and optionally set RESTIC_LOG_DIR /
-# RESTIC_VERIFY_STATE_DIR. Netbird access to the metrics host is optional; set
-# RESTIC_METRICS_INSTANCE so the series aren't labelled with the laptop's name.
+# Server / cron: export RESTIC_PASSWORD_COMMAND or RESTIC_PASSWORD_FILE; add a
+# `pcloud-sftp` Host alias to ~/.ssh/config (HostName esftp.pcloud.com, User the
+# pCloud account e-mail) and pre-seed its key into ~/.ssh/known_hosts; store the
+# pCloud account password as `keyring_helper pcloud`; keep bin/pcloud-sftp-askpass
+# next to this script (it hands that password to ssh so cron never prompts -- it
+# needs the keyring reachable in cron; if it isn't, fall back to `sshpass -e` with
+# a chmod-600 password file). Optionally set RESTIC_LOG_DIR / RESTIC_VERIFY_STATE_DIR.
+# Netbird access to the metrics host is optional; set RESTIC_METRICS_INSTANCE so
+# the series aren't labelled with the laptop's name.
 #
 # Pre-flight: probes the metrics host (VictoriaMetrics /health) first. If it's
 # unreachable -- i.e. not on the VPN / netbird mesh -- it warns that the result
@@ -31,26 +39,48 @@
 #   RESTIC_LOG_DIR=/var/log/restic
 #   RESTIC_METRICS_INSTANCE=pouchmaster
 #   17 3 * * 0 ~/.dotfiles/bin/restic-verify-data catalog ; ~/.dotfiles/bin/restic-verify-data photos
+#
+# (No SSH_ASKPASS wiring needed in crontab -- bin/pcloud-sftp sets it up itself;
+# it just needs `keyring_helper pcloud` to work in the cron environment.)
 
 set -uo pipefail
 
 CONFIG="${1:-}"
+# The rclone `pcloud:` remote is rooted at a folder ID (Backups/Macbook_Photos),
+# so its `backup/restic_*` paths land at /Backups/Macbook_Photos/backup/restic_*
+# when reached over sftp from the account root -- same files, same account
+# (srv.pcloud@h.dktn.info), just addressed by full path.
 case "$CONFIG" in
-    photos)  DEFAULT_REPO="rclone:pcloud:backup/restic_photos" ;;
-    catalog) DEFAULT_REPO="rclone:pcloud:backup/restic_catalog" ;;
+    photos)  DEFAULT_REPO="sftp:pcloud-sftp:/Backups/Macbook_Photos/backup/restic_photos" ;;
+    catalog) DEFAULT_REPO="sftp:pcloud-sftp:/Backups/Macbook_Photos/backup/restic_catalog" ;;
     *) echo "usage: $(basename "$0") <photos|catalog> [repo]" >&2; exit 2 ;;
 esac
 REPO="${2:-$DEFAULT_REPO}"
 
 # Password: honour whatever the environment already set (server cron), else fall
 # back to the laptop's Keychain helper. Both repos share the restic_photos entry.
+#
+# Guard against a stale interactive shell exporting a bare `RESTIC_PASSWORD_COMMAND=
+# keyring_helper` with no entry arg -- that just makes restic fail with
+# "Resolving password failed". Anything without a whitespace-separated argument is
+# treated as unusable and dropped so the known-good default below takes over.
+case "${RESTIC_PASSWORD_COMMAND:-}" in
+    "")             ;;   # unset -- default applied below
+    *[[:space:]]?*) ;;   # command + at least one arg -- trust it
+    *) echo "$(basename "$0"): ignoring RESTIC_PASSWORD_COMMAND='${RESTIC_PASSWORD_COMMAND}' (no entry arg)" >&2
+       unset RESTIC_PASSWORD_COMMAND ;;
+esac
 if [ -z "${RESTIC_PASSWORD_COMMAND:-}" ] && [ -z "${RESTIC_PASSWORD_FILE:-}" ]; then
     export RESTIC_PASSWORD_COMMAND="keyring_helper restic_photos"
 fi
 
-# pcloud EU endpoint (matches backup_photos). Reads can't corrupt the repo, so
-# unlike the upload path we do NOT pin RCLONE_TRANSFERS=1 here.
-export RCLONE_PCLOUD_HOSTNAME="${RCLONE_PCLOUD_HOSTNAME:-eapi.pcloud.com}"
+# Native sftp transport to pcloud (no rclone). bin/pcloud-sftp opens the sftp
+# subsystem on the `pcloud-sftp` ssh alias and feeds it the pCloud account
+# password from `keyring_helper pcloud` via SSH_ASKPASS, so cron never prompts.
+# Reads can't corrupt the repo, so we don't throttle connections as hard as the
+# upload path does. Resolve to an absolute path -- restic execs this string as-is
+# and does not expand ~ or honour a later cwd change.
+SFTP_COMMAND="$(CDPATH= cd "$(dirname "$0")" && pwd)/pcloud-sftp"
 
 # VictoriaMetrics host (on the netbird mesh) -- probed pre-flight and pushed to
 # at the end.
@@ -86,7 +116,7 @@ PART=$(( (LAST % 24) + 1 ))
 
 echo ">>> ${CONFIG}: verifying pack contents, slice ${PART}/24  (repo: $REPO)"
 restic -r "$REPO" check --read-data-subset="${PART}/24" \
-    -o rclone.connections=8 --verbose 2>&1 | tee "$LOG"
+    -o sftp.connections=8 -o sftp.command="$SFTP_COMMAND" --verbose 2>&1 | tee "$LOG"
 RC=${PIPESTATUS[0]}
 
 # Only advance the rotation now that restic has actually run to completion

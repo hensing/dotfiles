@@ -8,6 +8,10 @@
 # 2026-08-29), which is why this text-based check exists as a redundant
 # safety net alongside the exit code -- keep both, and keep this pattern
 # consistent everywhere it's used.
+#
+# Still relevant on the native sftp transport (restic-verify-data, and later
+# backup_photos): an interrupted sftp write can leave a short pack just like a
+# dropped rclone PUT, and check's exit code can still under-report it.
 RESTIC_DAMAGED_PATTERN='unexpected file size|repository contains errors|repository is damaged|damaged pack file'
 
 # metrics_preflight <what> [vm_host] [vm_port]
