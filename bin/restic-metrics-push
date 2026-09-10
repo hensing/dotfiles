@@ -16,7 +16,7 @@
 set -uo pipefail
 
 VM_URL="http://100.64.131.43:8428/api/v1/import"  # pouchmaster netbird_ip
-INSTANCE="${RESTIC_METRICS_INSTANCE:-hensing-mbp}"
+INSTANCE="${RESTIC_METRICS_INSTANCE:-$(hostname -s 2>/dev/null || hostname)}"
 STATE_DIR="$HOME/.cache/restic-metrics"
 mkdir -p "$STATE_DIR"
 

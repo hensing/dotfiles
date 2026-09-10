@@ -24,8 +24,9 @@
 # next to this script (it hands that password to ssh so cron never prompts -- it
 # needs the keyring reachable in cron; if it isn't, fall back to `sshpass -e` with
 # a chmod-600 password file). Optionally set RESTIC_LOG_DIR / RESTIC_VERIFY_STATE_DIR.
-# Netbird access to the metrics host is optional; set RESTIC_METRICS_INSTANCE so
-# the series aren't labelled with the laptop's name.
+# Netbird access to the metrics host is optional. The pushed series' `instance`
+# label defaults to `hostname -s`; override with RESTIC_METRICS_INSTANCE if the
+# host's name isn't the label you want in Grafana.
 #
 # Pre-flight: probes the metrics host (VictoriaMetrics /health) first. If it's
 # unreachable -- i.e. not on the VPN / netbird mesh -- it warns that the result
@@ -33,11 +34,11 @@
 # RESTIC_METRICS_ASSUME_YES=1 skips that prompt; cron (no TTY) warns and proceeds.
 #
 # Sample crontab (weekly, Sun 03:17 -- verifies both repos; catalog takes
-# seconds, photos ~2h). crontab can't expand $(...), so hard-code the host:
+# seconds, photos ~2h). `instance` defaults to the host's own name; only set
+# RESTIC_METRICS_INSTANCE here if you want a different label:
 #
 #   RESTIC_PASSWORD_FILE=/etc/restic/photos.pw
 #   RESTIC_LOG_DIR=/var/log/restic
-#   RESTIC_METRICS_INSTANCE=pouchmaster
 #   17 3 * * 0 ~/.dotfiles/bin/restic-verify-data catalog ; ~/.dotfiles/bin/restic-verify-data photos
 #
 # (No SSH_ASKPASS wiring needed in crontab -- this script exports it itself; it
@@ -142,7 +143,7 @@ fi
 # --- best-effort metrics push (same pipeline as restic-metrics-push) ---
 if command -v curl >/dev/null 2>&1; then
     VM_URL="http://${VM_HOST}:${VM_PORT}/api/v1/import"
-    INSTANCE="${RESTIC_METRICS_INSTANCE:-hensing-mbp}"
+    INSTANCE="${RESTIC_METRICS_INSTANCE:-$(hostname -s 2>/dev/null || hostname)}"
     NOW_S=$(date +%s)
     NOW_MS=$(( NOW_S * 1000 ))
     PAYLOAD="$(mktemp)"
