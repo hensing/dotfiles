@@ -19,7 +19,6 @@ CATALOG_SRC="$HOME/Pictures/Lightroom"
 REMOTE_MAC_DIR="/mnt/storage/photos/mac/"
 REMOTE_CATALOG_DIR="/mnt/storage/photos/catalog/"
 REMOTE_MAC_BACKUP_DIR="/mnt/storage/photos/archive/mac-removed"
-REMOTE_PARTIAL_DIR="/mnt/storage/photos/.rsync-partial"
 EXCLUDE_FILE="$(dirname "$0")/restic-excludes.txt"
 
 RSYNC_BIN="/opt/homebrew/bin/rsync"
@@ -81,31 +80,33 @@ TS="$(date +%Y%m%d-%H%M%S)"
 # REMOVED --fuzzy/--compare-dest (tried, then reverted): the idea was to
 # avoid re-uploading content that already exists elsewhere on the NAS by
 # letting rsync's delta-transfer use a same-size/similarly-named file
-# elsewhere as a "basis" to diff against. In practice it crashed a real run:
-# "rsync: [receiver] lseek returned X, not Y: Invalid argument (22)" --
-# --fuzzy found an unrelated file (DSC*.ARW is an extremely common Sony
-# filename, and --compare-dest included the whole archive/ tree, full of
-# unrelated same-pattern files from other shoots) and used it as a delta
-# basis; that file's actual on-disk size didn't match what rsync's basis
-# selection expected, and the receiver died mid-transfer (observed live,
-# 2026-09-05, Photos/2026 push). Not worth the crash risk on every new
-# ARW/MP4 for a bandwidth optimization -- bin/track_photo_moves already
-# solves the actual "avoid re-upload after reorganizing" need safely, via
-# exact inode identity rather than fuzzy name/size guessing.
-# --partial-dir="$REMOTE_PARTIAL_DIR": without this, an interrupted transfer's
-# incomplete data sits at its real destination filename (rsync's default
-# --partial behavior). On the mac/ leg, the *next* run then has to overwrite
-# that same path to finish the transfer -- and since --backup-dir fires on
-# any overwrite, that incomplete partial data would get swept into
-# archive/mac-removed/ right alongside genuinely-removed content, polluting
-# the archive with junk. Pointing partial-dir at a separate location outside
-# mac/, catalog/, and archive/ means in-progress data never touches the
-# destination tree (so --backup-dir never sees it) until the transfer
-# completes, at which point rsync moves it into place in one step.
+# elsewhere as a "basis" to diff against. Dropped after a crash that first
+# looked like it was caused by this ("rsync: [receiver] lseek returned X,
+# not Y: Invalid argument (22)", 2026-09-05/06, Photos/2026 push) -- see
+# below, that turned out to have a different root cause, but --fuzzy is
+# still not worth the added surface area for a bandwidth optimization
+# bin/track_photo_moves already solves more safely via exact inode identity.
+#
+# REMOVED --partial/--partial-dir (also tried, also reverted) -- this was
+# the ACTUAL cause of the crash above, confirmed by reproducing it twice
+# identically (same file, same byte offsets) even after removing
+# --fuzzy/--compare-dest, then fixing it by deleting the stale partial file
+# and re-running fresh, which worked instantly. Resuming FROM a partial file
+# reliably re-triggers "lseek returned X, not Y: Invalid argument" on this
+# pairing of rsync versions (local 3.5.0, TrueNAS's 3.2.7) -- likely a
+# protocol-level disagreement about how to validate/resume partial data
+# across that version gap. Since resuming is what's broken, not transferring
+# itself, keeping --partial-dir means every future interruption sets up the
+# identical crash on the next run. Not using --partial at all means an
+# interrupted large file just restarts from zero next time -- a bandwidth
+# cost, but nothing compared to a script that reliably breaks itself. This
+# also sidesteps the original motivation for --partial-dir in the first
+# place (incomplete data landing in archive/mac-removed/ via --backup-dir on
+# the next overwrite): with nothing partial ever kept, there's nothing for
+# --backup-dir to sweep up.
 COMMON_OPTS=(-rlt --iconv=utf-8-mac,utf-8 --delete --max-delete=1000
              -e "ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=3"
-             --partial-dir="$REMOTE_PARTIAL_DIR"
-             --exclude-from="$EXCLUDE_FILE" -P "${DRY_RUN[@]}" "${CHECKSUM_OPT[@]}")
+             --exclude-from="$EXCLUDE_FILE" --progress "${DRY_RUN[@]}" "${CHECKSUM_OPT[@]}")
 
 # mac/ leg only: --backup-dir moves anything the mirror would otherwise
 # remove or overwrite into archive/mac-removed/ instead -- nothing this
