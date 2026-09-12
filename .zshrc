@@ -445,7 +445,7 @@ LS_COLORS='no=00;38;5;244:rs=0:di=00;38;5;33:ln=00;38;5;37:mh=00:pi=48;5;230;38;
 export LS_COLORS
 
 # --- modules ---
-for _m in condor docker git jupyter tmux python borgmatic; do
+for _m in condor docker git jupyter tmux python borgmatic netbird; do
     [[ -f ~/.zsh/${_m}.zsh ]] && source ~/.zsh/${_m}.zsh
 done
 unset _m
