@@ -32,7 +32,7 @@ echo "🚀 Starting rsync from $SOURCE to $TARGET..."
 # -v: Verbose output
 # -P: Show progress and allow resuming partial transfers
 # --delete: Remove files from target if they were deleted from source
-$RSYNC_BIN -auvP --delete \
+$RSYNC_BIN -auvP --delete-before \
     --exclude='.DS_Store' \
     --exclude='.fseventsd' \
     --exclude='.Spotlight-V100' \

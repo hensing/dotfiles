@@ -1,11 +1,31 @@
 #!/bin/bash
 set -o pipefail
 
+# The RAW backlog can take a day over the USA->EU link. Re-exec under caffeinate
+# (same pattern as push_photos_to_nas) so idle sleep doesn't stall the upload:
+# -i blocks idle sleep (on battery too), -s system sleep on AC, -d display
+# sleep. Closing the lid still sleeps.
+if [ -z "$BACKUP_PHOTOS_CAFFEINATED" ]; then
+    export BACKUP_PHOTOS_CAFFEINATED=1
+    exec caffeinate -dis "$0" "$@"
+fi
+
+# One Ctrl-C ends the whole run. Without this, the terminal's SIGINT only kills
+# the restic in flight (which still removes its own lock) and the script then
+# carries on with check/forget/metrics. bash runs the trap once that child exits.
+trap 'echo "!!! interrupted -- aborting backup_photos" >&2; exit 130' INT TERM
+
 # --- CONFIGURATION ---
-# Native sftp transport to pcloud (no rclone). Same account and files as the old
-# rclone `pcloud:backup/restic_*` paths -- that remote was rooted at a folder id
-# which resolves to /Backups/Macbook_Photos/backup when reached over sftp.
-REPO_BASE="sftp:pcloud-sftp:/Backups/Macbook_Photos/backup"
+# restic's rclone backend (`rclone serve restic --stdio`) on top of an rclone
+# *sftp* remote to pcloud's SFTP endpoint -- not rclone's pcloud (HTTP API)
+# backend, whose upload endpoint accepted truncated packs (2026-08-13, -29).
+# restic's own sftp backend can't reconnect after pcloud drops the ssh session,
+# and treats pcloud's "file does not exist" right after a rename as permanent;
+# either one aborts the whole backup. rclone keeps a connection pool, retries
+# each failed operation, and hands anything left to restic as a retryable
+# HTTP 500. Same repos/files as the sftp:pcloud-sftp:... URLs used by
+# restic-verify-data on pouchmaster.
+REPO_BASE="rclone:pcloudsftp:/Backups/Macbook_Photos/backup"
 REPO_CAT="$REPO_BASE/restic_catalog"
 REPO_RAW="$REPO_BASE/restic_photos"
 
@@ -21,6 +41,24 @@ export RESTIC_PASSWORD_COMMAND="keyring_helper restic_photos"
 export SSH_ASKPASS="$(CDPATH= cd "$(dirname "$0")" && pwd)/pcloud-sftp-askpass"
 export SSH_ASKPASS_REQUIRE=force
 export DISPLAY="${DISPLAY:-:0}"
+
+# The `pcloudsftp` rclone remote, defined here instead of in rclone.conf so it's
+# versioned with this script. `ssh = ssh ... pcloud-sftp` makes rclone run
+# OpenSSH per connection, reusing the Host alias + askpass above (no password
+# stored for rclone). ServerAlive*: a connection that died silently (sleep/wake,
+# a NAT timeout) otherwise stays ESTABLISHED with its request never answered,
+# and once every pooled connection is stuck like that the backup hangs forever
+# at 0 B/s (2026-09-27). With keepalives ssh exits within ~60s, rclone sees
+# "connection lost", and reconnects. pcloud's SFTP has no shell, so no remote hashing; set_modtime
+# off skips the post-upload setstat -- another call that can hit pcloud's
+# visibility lag.
+export RCLONE_CONFIG_PCLOUDSFTP_TYPE=sftp
+export RCLONE_CONFIG_PCLOUDSFTP_SSH="ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=4 pcloud-sftp"
+export RCLONE_CONFIG_PCLOUDSFTP_SET_MODTIME=false
+export RCLONE_CONFIG_PCLOUDSFTP_SHELL_TYPE=none
+export RCLONE_CONFIG_PCLOUDSFTP_MD5SUM_COMMAND=none
+export RCLONE_CONFIG_PCLOUDSFTP_SHA1SUM_COMMAND=none
+export RCLONE_CONFIG_PCLOUDSFTP_KNOWN_HOSTS_FILE="$HOME/.ssh/known_hosts"
 
 # --- ARGS ---
 # --verify-data / -V: also run the slow deep pack-*content* check
@@ -59,17 +97,70 @@ fi
 metrics_preflight "backup" || exit 1
 
 # Transport note: this still runs from the laptop over the congested USA->EU
-# link that twice (2026-08-13, -29) left a *truncated* pack pcloud's rclone
-# uploadfile endpoint had accepted. The sftp backend writes each pack to a temp
-# name and renames on success, which should make a dropped connection fail the
-# pack outright rather than persist a short one -- but that is unproven here, so
-# check_and_heal() below stays as the safety net.
+# link. How rclone's sftp backend handles a transfer cut off mid-write on pcloud
+# is unproven, so check_and_heal() below stays as the safety net against a
+# short pack, and restic_backup_retry() as the fallback if a transient error
+# still aborts a backup.
 
 EXCLUDE_FILE="$(dirname "$0")/restic-excludes.txt"
+
+# pcloud's listing lags behind deletes: a lock the previous restic command
+# removed can show up again for a minute or two, and the next command then
+# fails with "repository is already locked" (2026-09-27, catalog forget). Wait
+# it out instead of failing.
+RETRY_LOCK=(--retry-lock 5m)
 
 LOG_DIR="$HOME/Library/Logs/restic"
 mkdir -p "$LOG_DIR"
 TS="$(date +%Y%m%d-%H%M%S)"
+
+# restic_backup_retry <log> <label> <repo> <backup args...>
+#
+# Runs `restic -r <repo> backup <args>`, appending to <log>. Retries (up to
+# RESTIC_BACKUP_ATTEMPTS, default 5) only when pCloud's sftp aborted the backup
+# after it was already running. A config/auth failure is not retried.
+#  - Visibility lag: restic's sftp Save() writes a temp pack, renames it into
+#    place, then chmods it read-only. pcloud sometimes hasn't made the file
+#    visible yet for the next step, so the rename (2026-09-27) or the chmod
+#    (2026-09-25, -26) fails with "file does not exist". restic counts
+#    not-exist as permanent and aborts the whole backup.
+#  - Dropped connection: pcloud closes the ssh session ("closed by remote host",
+#    2026-09-25, -27). restic's sftp backend can't reconnect, so every
+#    later call fails with "ssh command exited". Before this retry the helper
+#    waits RESTIC_RETRY_PAUSE seconds (default 30).
+# The repo is fine either way. Packs from the aborted run (or their
+# -restic-temp- files) just aren't indexed, and `restic check` reports them as
+# "not referenced in any index". A manual `restic prune` clears those. A retry
+# rescans quickly because of the parent snapshot, and keeps progress: restic
+# writes an index during the backup every 10 min, so only the data from the
+# last ~10 min before the failure is uploaded again. The dead run's lock is
+# left behind, so `unlock` runs first (restic treats a lock whose PID is gone on
+# this host as stale). Every attempt stays in <log>, so the Fatal line still
+# marks the run as degraded for metrics. Returns the last attempt's exit code.
+restic_backup_retry() {
+    local log="$1" label="$2" repo="$3"
+    shift 3
+    local max="${RESTIC_BACKUP_ATTEMPTS:-5}" n=1 rc attempt_log
+    attempt_log="$(mktemp -t restic-attempt)"
+    while :; do
+        : > "$attempt_log"
+        restic -r "$repo" backup "${RETRY_LOCK[@]}" "$@" 2>&1 | tee -a "$log" "$attempt_log"
+        rc=$?
+        [ "$rc" -eq 0 ] || [ "$n" -ge "$max" ] && break
+        n=$((n + 1))
+        if grep -qE '^Fatal: unable to save snapshot: .*: file does not exist' "$attempt_log"; then
+            echo "!!! ${label}: pCloud not-exist race (attempt ${n}/${max}) -- retrying" | tee -a "$log"
+        elif grep -qE '^Fatal: unable to save snapshot: .*ssh command exited' "$attempt_log"; then
+            echo "!!! ${label}: pCloud dropped the connection (attempt ${n}/${max}) -- retrying in ${RESTIC_RETRY_PAUSE:-30}s" | tee -a "$log"
+            sleep "${RESTIC_RETRY_PAUSE:-30}"
+        else
+            break
+        fi
+        restic -r "$repo" unlock 2>/dev/null
+    done
+    rm -f "$attempt_log"
+    return "$rc"
+}
 
 # check_and_heal <config> <repo> <src> <check_log> [heal-backup-opts...]
 #
@@ -90,7 +181,11 @@ check_and_heal() {
     local heal_opts=("$@")
     local rc
 
-    restic -r "$repo" check --verbose 2>&1 | tee "$check_log"
+    # A backup that died on a dropped connection leaves its lock behind (it
+    # couldn't reach pcloud to remove it), and check's exclusive lock would
+    # fail on it. unlock only removes stale locks, like one whose PID is gone.
+    restic -r "$repo" unlock 2>/dev/null
+    restic -r "$repo" check "${RETRY_LOCK[@]}" --verbose 2>&1 | tee "$check_log"
     rc=$?
 
     grep -qiE "$RESTIC_DAMAGED_PATTERN" "$check_log" || return "$rc"
@@ -98,18 +193,18 @@ check_and_heal() {
     REPO_DAMAGED=1
     echo "!!! ${cfg}: damaged pack files detected -- attempting lossless in-place heal"
     restic -r "$repo" unlock 2>&1 | tee "$LOG_DIR/${cfg}-autorepair-unlock-$TS.log"
-    restic -r "$repo" repair index --verbose 2>&1 | tee "$LOG_DIR/${cfg}-autorepair-index-$TS.log"
+    restic -r "$repo" repair index "${RETRY_LOCK[@]}" --verbose 2>&1 | tee "$LOG_DIR/${cfg}-autorepair-index-$TS.log"
 
     if [ -e "$src" ]; then
-        restic -r "$repo" backup "$src" --verbose \
-            --exclude-file="$EXCLUDE_FILE" "${heal_opts[@]}" \
-            2>&1 | tee "$LOG_DIR/${cfg}-autorepair-heal-$TS.log"
+        restic_backup_retry "$LOG_DIR/${cfg}-autorepair-heal-$TS.log" "$cfg" \
+            "$repo" "$src" --verbose \
+            --exclude-file="$EXCLUDE_FILE" "${heal_opts[@]}"
     else
         echo "!!! ${cfg}: source '$src' unavailable -- cannot heal, manual repair needed"
     fi
 
     local recheck_log="$LOG_DIR/${cfg}-autorepair-check-$TS.log"
-    restic -r "$repo" check --verbose 2>&1 | tee "$recheck_log"
+    restic -r "$repo" check "${RETRY_LOCK[@]}" --verbose 2>&1 | tee "$recheck_log"
     rc=$?
     if [ "$rc" -eq 0 ] && ! grep -qiE "$RESTIC_DAMAGED_PATTERN" "$recheck_log"; then
         echo ">>> ${cfg}: auto-heal succeeded"
@@ -125,22 +220,23 @@ echo "--- [1/2] Backing up Lightroom catalog ---"
 if [ -d "$HOME/Pictures/Lightroom" ]; then
     CAT_LOG="$LOG_DIR/catalog-backup-$TS.log"
     restic -r "$REPO_CAT" unlock 2>/dev/null
-    # -o sftp.connections=8: the catalog is many small files, so extra parallel
+    # -o rclone.connections=8: the catalog is many small files, so extra parallel
     # ssh channels help (default is 5). RAWs below stay at the default.
-    restic -r "$REPO_CAT" backup "$HOME/Pictures/Lightroom" \
+    restic_backup_retry "$CAT_LOG" catalog "$REPO_CAT" "$HOME/Pictures/Lightroom" \
         --verbose \
-        -o sftp.connections=8 \
+        -o rclone.connections=8 \
         --exclude-file="$EXCLUDE_FILE" \
-        --compression max \
-        2>&1 | tee "$CAT_LOG"
+        --compression max
     CAT_RC=$?
 
-    # rc=0 but restic logged a transient backend retry or a non-fatal error line
-    # -- still counts as a degraded run for the metrics event (the link is flaky
-    # enough to matter). Anchored patterns so a filename containing "error" in
-    # --verbose output doesn't trip it.
+    # rc=0 but restic logged a non-fatal error line, or restic_backup_retry had
+    # to rerun the backup after a Fatal -- still counts as a degraded run for
+    # the metrics event. Retried-then-succeeded requests ("returned error,
+    # retrying") don't: over rclone they're routine on pcloud and would mark
+    # nearly every run. Anchored so a filename containing "error" in --verbose
+    # output doesn't trip it.
     CAT_DEGRADED=0
-    grep -qE 'returned error, retrying|^(error|Fatal):' "$CAT_LOG" && CAT_DEGRADED=1
+    grep -qE '^(error|Fatal):' "$CAT_LOG" && CAT_DEGRADED=1
 
     REPO_DAMAGED=0
     check_and_heal catalog "$REPO_CAT" "$HOME/Pictures/Lightroom" \
@@ -167,7 +263,7 @@ if [ -d "$HOME/Pictures/Lightroom" ]; then
     # so we keep every snapshot we might still need to recover from.
     if [ "$CAT_RC" -eq 0 ] && [ "$CAT_CHECK_RC" -eq 0 ]; then
         restic -r "$REPO_CAT" \
-            forget --keep-last 3 --keep-within-hourly 12h --keep-within-daily 10d --keep-within-weekly 31d --keep-within-monthly 12m --keep-within-yearly 5y \
+            forget "${RETRY_LOCK[@]}" --keep-last 3 --keep-within-hourly 12h --keep-within-daily 10d --keep-within-weekly 31d --keep-within-monthly 12m --keep-within-yearly 5y \
             --verbose \
             2>&1 | tee "$LOG_DIR/catalog-forget-$TS.log"
     fi
@@ -195,14 +291,13 @@ if [ -d "$PHOTO_MOUNT" ]; then
     RAW_LOG="$LOG_DIR/photos-backup-$TS.log"
     restic -r "$REPO_RAW" unlock 2>/dev/null
     # Default 16 MiB packs. No --compression max: ARW files are already compressed.
-    restic -r "$REPO_RAW" backup "$PHOTO_MOUNT" \
+    restic_backup_retry "$RAW_LOG" photos "$REPO_RAW" "$PHOTO_MOUNT" \
         --verbose \
-        --exclude-file="$EXCLUDE_FILE" \
-        2>&1 | tee "$RAW_LOG"
+        --exclude-file="$EXCLUDE_FILE"
     RAW_RC=$?
 
     RAW_DEGRADED=0
-    grep -qE 'returned error, retrying|^(error|Fatal):' "$RAW_LOG" && RAW_DEGRADED=1
+    grep -qE '^(error|Fatal):' "$RAW_LOG" && RAW_DEGRADED=1
 
     REPO_DAMAGED=0
     check_and_heal photos "$REPO_RAW" "$PHOTO_MOUNT" "$LOG_DIR/photos-check-$TS.log"
@@ -223,7 +318,7 @@ if [ -d "$PHOTO_MOUNT" ]; then
     # See the catalog block: forget needs both a clean backup and a clean check.
     if [ "$RAW_RC" -eq 0 ] && [ "$RAW_CHECK_RC" -eq 0 ]; then
         restic -r "$REPO_RAW" \
-            forget --keep-last 3 --keep-within-hourly 12h --keep-within-daily 10d --keep-within-weekly 31d --keep-within-monthly 12m --keep-within-yearly 5y \
+            forget "${RETRY_LOCK[@]}" --keep-last 3 --keep-within-hourly 12h --keep-within-daily 10d --keep-within-weekly 31d --keep-within-monthly 12m --keep-within-yearly 5y \
             --verbose \
             2>&1 | tee "$LOG_DIR/photos-forget-$TS.log"
     fi
