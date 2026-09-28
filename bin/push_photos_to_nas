@@ -54,6 +54,10 @@ TS="$(date +%Y%m%d-%H%M%S)"
 # side is NFC. Without this, rsync treats every visually-identical umlaut
 # folder as brand new and re-uploads it as a duplicate instead of recognizing
 # it already exists (confirmed live against the "Eivör" folder).
+# Limitation: Apple's libiconv (which Homebrew rsync links against) can't
+# convert characters outside the BMP (emoji) from utf-8-mac, so such
+# filenames fail with "cannot convert filename" -- and rsync then skips
+# --delete for the whole run. Rename those files; see warn_iconv_failures.
 #
 # --checksum (opt-in via --checksum flag, not on by default): needed once to
 # correct mtime drift left over from the old Windows-based sync -- rsync
@@ -128,6 +132,16 @@ CATALOG_OPTS=("${COMMON_OPTS[@]}")
 # deliberately far below that.
 MIN_ENTRIES=20
 
+# rsync only reports "cannot convert filename (Illegal byte sequence)" and
+# then silently disables --delete for the run; spell out the actual fix.
+warn_iconv_failures() {
+    local log="$1"
+    grep -q "cannot convert filename" "$log" 2>/dev/null || return 0
+    echo "!!! Some filenames contain emoji/non-BMP characters that --iconv=utf-8-mac can't convert" >&2
+    echo "!!! (Apple libiconv limitation). Rename them -- until then --delete is skipped for this leg:" >&2
+    grep "cannot convert filename" "$log" | sed 's/^/!!!   /' >&2
+}
+
 check_not_suspiciously_empty() {
     local path="$1" label="$2" min="${3:-$MIN_ENTRIES}"
     local count
@@ -165,6 +179,7 @@ if [ ${#SUBDIRS[@]} -gt 0 ]; then
             LOG="$LOG_DIR/mac-$TS-$SAFE_NAME.log"
             "$RSYNC_BIN" "${MAC_OPTS[@]}" "$PHOTO_MOUNT/$SUBDIR/" "${REMOTE_HOST}:${REMOTE_MAC_DIR}${SUBDIR}" 2>&1 | tee "$LOG"
             MAC_RC=$?
+            warn_iconv_failures "$LOG"
             if [ "$MAC_RC" -ne 0 ]; then
                 echo "!!! mac/$SUBDIR push exited with status $MAC_RC -- see $LOG" >&2
                 FAILED+=("$SUBDIR")
@@ -186,6 +201,7 @@ if [ -d "$PHOTO_MOUNT" ]; then
         LOG="$LOG_DIR/mac-$TS.log"
         "$RSYNC_BIN" "${MAC_OPTS[@]}" "$PHOTO_MOUNT/" "${REMOTE_HOST}:${REMOTE_MAC_DIR}" 2>&1 | tee "$LOG"
         MAC_RC=$?
+        warn_iconv_failures "$LOG"
         [ "$MAC_RC" -ne 0 ] && echo "!!! mac/ push exited with status $MAC_RC -- see $LOG" >&2
     fi
 else
@@ -199,6 +215,7 @@ if [ -d "$CATALOG_SRC" ]; then
         LOG="$LOG_DIR/catalog-$TS.log"
         "$RSYNC_BIN" "${CATALOG_OPTS[@]}" "$CATALOG_SRC/" "${REMOTE_HOST}:${REMOTE_CATALOG_DIR}" 2>&1 | tee "$LOG"
         CAT_RC=$?
+        warn_iconv_failures "$LOG"
         [ "$CAT_RC" -ne 0 ] && echo "!!! catalog/ push exited with status $CAT_RC -- see $LOG" >&2
     fi
 else
