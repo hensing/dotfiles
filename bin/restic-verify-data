@@ -24,12 +24,14 @@
 # next to this script (it hands that password to ssh so cron never prompts -- it
 # needs the keyring reachable in cron; if it isn't, fall back to `sshpass -e` with
 # a chmod-600 password file). Optionally set RESTIC_LOG_DIR / RESTIC_VERIFY_STATE_DIR.
-# Netbird access to the metrics host is optional. The pushed series' `instance`
-# label defaults to `hostname -s`; override with RESTIC_METRICS_INSTANCE if the
-# host's name isn't the label you want in Grafana.
+# Metrics go to the gated public endpoint (see restic-common.sh), which needs
+# `keyring_helper vicmetrics` in cron; on the netbird mesh set
+# RESTIC_METRICS_URL=http://100.64.131.43:8428 to skip the gate instead. The
+# pushed series' `instance` label defaults to `hostname -s`; override with
+# RESTIC_METRICS_INSTANCE if the host's name isn't the label you want in Grafana.
 #
-# Pre-flight: probes the metrics host (VictoriaMetrics /health) first. If it's
-# unreachable -- i.e. not on the VPN / netbird mesh -- it warns that the result
+# Pre-flight: probes the metrics ingress (empty import POST) first. If it's
+# unreachable (offline, or the gate rejects us) it warns that the result
 # won't reach Grafana; interactively it then asks before starting the ~2h run.
 # RESTIC_METRICS_ASSUME_YES=1 skips that prompt; cron (no TTY) warns and proceeds.
 #
@@ -85,20 +87,15 @@ export SSH_ASKPASS="$(CDPATH= cd "$(dirname "$0")" && pwd)/pcloud-sftp-askpass"
 export SSH_ASKPASS_REQUIRE=force
 export DISPLAY="${DISPLAY:-:0}"
 
-# VictoriaMetrics host (on the netbird mesh) -- probed pre-flight and pushed to
-# at the end.
-VM_HOST="${RESTIC_METRICS_HOST:-100.64.131.43}"
-VM_PORT="${RESTIC_METRICS_PORT:-8428}"
-
 # --- pre-flight: is the metrics host reachable? ---
 # This is a ~2h job; if VictoriaMetrics is unreachable the verify still runs
 # but its result never lands in Grafana. Declining here exits 3 (not 1, and
 # not 2 -- that's already "bad usage" above) -- distinct from "the verify ran
 # and failed" (exit 1, below) -- so a caller like backup_photos can tell
 # "skipped, no signal either way" apart from a real failure and not block
-# snapshot pruning over an unrelated VPN hiccup.
+# snapshot pruning over an unrelated metrics outage.
 . "$(dirname "$0")/restic-common.sh"
-metrics_preflight "verify" "$VM_HOST" "$VM_PORT" || exit 3
+metrics_preflight "verify" || exit 3
 
 LOG_DIR="${RESTIC_LOG_DIR:-$HOME/Library/Logs/restic}"
 mkdir -p "$LOG_DIR"
@@ -142,7 +139,7 @@ fi
 
 # --- best-effort metrics push (same pipeline as restic-metrics-push) ---
 if command -v curl >/dev/null 2>&1; then
-    VM_URL="http://${VM_HOST}:${VM_PORT}/api/v1/import"
+    VM_URL="${RESTIC_METRICS_URL}/api/v1/import"
     INSTANCE="${RESTIC_METRICS_INSTANCE:-$(hostname -s 2>/dev/null || hostname)}"
     NOW_S=$(date +%s)
     NOW_MS=$(( NOW_S * 1000 ))
@@ -152,7 +149,7 @@ if command -v curl >/dev/null 2>&1; then
         echo "{\"metric\":{\"__name__\":\"restic_verify_data_damaged\",\"instance\":\"${INSTANCE}\",\"config\":\"${CONFIG}\"},\"values\":[${DAMAGED}],\"timestamps\":[${NOW_MS}]}"
         echo "{\"metric\":{\"__name__\":\"restic_verify_data_last_run_timestamp\",\"instance\":\"${INSTANCE}\",\"config\":\"${CONFIG}\"},\"values\":[${NOW_S}],\"timestamps\":[${NOW_MS}]}"
     } > "$PAYLOAD"
-    curl -fsS -m 15 --retry 3 -X POST -H "Content-Type: application/json" \
+    metrics_curl -fsS -m 15 --retry 3 -X POST -H "Content-Type: application/json" \
         --data-binary @"$PAYLOAD" "$VM_URL" > /dev/null 2>&1
     rm -f "$PAYLOAD"
 fi

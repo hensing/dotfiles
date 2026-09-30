@@ -15,11 +15,50 @@
 # pack, and check's exit code has under-reported that before.
 RESTIC_DAMAGED_PATTERN='unexpected file size|repository contains errors|repository is damaged|damaged pack file'
 
-# metrics_preflight <what> [vm_host] [vm_port]
+# VictoriaMetrics on pouchmaster, reached through its public Caddy front, so
+# pushes no longer need the VPN / netbird mesh. Caddy only forwards POSTs to the
+# write/import paths that carry the X-Metrics-Gate header (queries stay
+# VPN-only); its secret is `keyring_helper vicmetrics`.
+# RESTIC_METRICS_URL overrides the base URL (no trailing slash), e.g.
+# http://100.64.131.43:8428 to go straight to VictoriaMetrics over netbird.
+# RESTIC_METRICS_HOST[/_PORT] still selects that direct URL: pouchmaster's
+# restic-verify.service (ansible roles/restic-verify) sets it to its own
+# netbird_ip and has no vicmetrics keyring entry.
+if [ -z "${RESTIC_METRICS_URL:-}" ] && [ -n "${RESTIC_METRICS_HOST:-}" ]; then
+    RESTIC_METRICS_URL="http://${RESTIC_METRICS_HOST}:${RESTIC_METRICS_PORT:-8428}"
+fi
+RESTIC_METRICS_URL="${RESTIC_METRICS_URL:-https://metrics.dickten.info}"
+
+# metrics_curl <curl args...>
 #
-# Probes the VictoriaMetrics host's /health endpoint. If unreachable (not on
-# the VPN / netbird mesh), warns that this run's result won't reach Grafana
-# and, when run interactively, asks whether to proceed anyway.
+# curl with the X-Metrics-Gate header added. The header goes in through a curl
+# config on stdin (-K -), so the secret never shows up in argv / ps -- callers
+# must not pass stdin data of their own. Only an https URL (the gate) reads
+# the secret: a direct http://<netbird_ip>:8428 doesn't need it, and hosts like
+# pouchmaster have no vicmetrics entry -- keyring_helper would prompt to create
+# one on a tty. If the secret can't be read, the request goes out without it
+# (a 403 at the gate).
+metrics_curl() {
+    local secret=""
+    case "$RESTIC_METRICS_URL" in
+        https://*) secret="$(keyring_helper vicmetrics </dev/null 2>/dev/null)" || secret="" ;;
+    esac
+    if [ -n "$secret" ]; then
+        printf 'header = "X-Metrics-Gate: %s"\n' "$secret" | curl -K - "$@"
+    else
+        curl "$@"
+    fi
+}
+
+# metrics_preflight <what>
+#
+# Probes the ingress with an empty POST to /api/v1/import: VictoriaMetrics
+# answers 204 and stores nothing. /health can't be used -- the public gate is
+# push-only (POST to write/import paths; everything else is a 403, see
+# pouchmaster's Caddyfile in the ansible repo) -- and this also proves the gate
+# secret is accepted. If unreachable (offline, gate secret missing/wrong),
+# warns that this run's result won't reach Grafana and, when run
+# interactively, asks whether to proceed anyway.
 # RESTIC_METRICS_ASSUME_YES=1 skips the prompt; non-interactive (cron) always
 # proceeds after warning -- the metrics push is best-effort regardless.
 #
@@ -30,13 +69,11 @@ RESTIC_DAMAGED_PATTERN='unexpected file size|repository contains errors|reposito
 # "ran and failed".
 metrics_preflight() {
     local what="$1"
-    local vm_host="${2:-${RESTIC_METRICS_HOST:-100.64.131.43}}"
-    local vm_port="${3:-${RESTIC_METRICS_PORT:-8428}}"
     if command -v curl >/dev/null 2>&1 \
-       && ! curl -fsS --connect-timeout 3 -m 5 -o /dev/null \
-            "http://${vm_host}:${vm_port}/health" 2>/dev/null
+       && ! metrics_curl -fsS --connect-timeout 3 -m 5 -o /dev/null \
+            -X POST --data-binary '' "${RESTIC_METRICS_URL}/api/v1/import" 2>/dev/null
     then
-        echo "!!! metrics host ${vm_host}:${vm_port} unreachable -- VPN / netbird down?" >&2
+        echo "!!! metrics host ${RESTIC_METRICS_URL} unreachable -- offline, or gate secret (keyring_helper vicmetrics) missing/wrong?" >&2
         echo "    The ${what} will still run, but this run won't be recorded in Grafana." >&2
         if [ -t 0 ] && [ -z "${RESTIC_METRICS_ASSUME_YES:-}" ]; then
             printf "    Proceed anyway? [y/N] " >&2

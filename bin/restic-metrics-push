@@ -1,6 +1,6 @@
 #!/bin/bash
-# restic-metrics-push — push backup metrics to VictoriaMetrics (pouchmaster),
-# same /api/v1/import JSON-lines pipeline the Ansible-managed hosts use for
+# restic-metrics-push — push backup metrics to VictoriaMetrics (pouchmaster,
+# via the gated public endpoint -- see restic-common.sh), same /api/v1/import JSON-lines pipeline the Ansible-managed hosts use for
 # Borg (see ansible repo: roles/borgmatic/templates/borg-metrics-push.sh.j2).
 #
 # Usage:
@@ -15,7 +15,8 @@
 
 set -uo pipefail
 
-VM_URL="http://100.64.131.43:8428/api/v1/import"  # pouchmaster netbird_ip
+. "$(dirname "$0")/restic-common.sh"
+VM_URL="${RESTIC_METRICS_URL}/api/v1/import"
 INSTANCE="${RESTIC_METRICS_INSTANCE:-$(hostname -s 2>/dev/null || hostname)}"
 STATE_DIR="$HOME/.cache/restic-metrics"
 mkdir -p "$STATE_DIR"
@@ -33,19 +34,29 @@ SNAP_JSON_FILE=$(mktemp)
 trap 'rm -f "$PAYLOAD" "$SNAP_JSON_FILE"' EXIT
 
 if [ "$1" = "pcloud" ]; then
-  # pcloud account usage via the public API (was: `rclone about pcloud:`).
-  # The account is password-only -- reuse the ssh password from keyring_helper,
-  # kept off argv by piping it to curl's --data-urlencode @- (POST body, not URL).
-  PCLOUD_USER="srv.pcloud@h.dktn.info"
+  # pcloud account usage from the pcloud userinfo API, authenticated with the
+  # OAuth token of rclone's pcloud (HTTP API) remote `pcloud:` in rclone.conf.
+  # Password login fails since the account has 2FA (1022 "Please provide
+  # 'code'"); the token isn't affected and never expires (expiry is the zero
+  # time). The API host comes from the remote too (eapi = EU region). The token
+  # reaches curl as a config on stdin (-K -), so it stays off argv/URL. Not the
+  # sftp remote: pcloud's sftp statvfs returns placeholders (100 TiB total,
+  # 10 GiB used), not the account's quota.
   USERINFO_FILE=$(mktemp)
   trap 'rm -f "$PAYLOAD" "$SNAP_JSON_FILE" "$USERINFO_FILE"' EXIT
-  if command -v keyring_helper >/dev/null 2>&1 \
-     && keyring_helper pcloud | curl -fsS -m 15 --retry 2 \
-            --data-urlencode "username=${PCLOUD_USER}" \
-            --data-urlencode "password@-" \
-            "https://eapi.pcloud.com/userinfo" > "$USERINFO_FILE" 2>/dev/null
+  PCLOUD_HOST=$(rclone config dump 2>/dev/null | python3 -c '
+import json, sys
+print(json.load(sys.stdin)["pcloud"].get("hostname") or "api.pcloud.com")
+' 2>/dev/null)
+  if [ -n "$PCLOUD_HOST" ] \
+     && rclone config dump 2>/dev/null | python3 -c '
+import json, sys
+tok = json.loads(json.load(sys.stdin)["pcloud"]["token"])["access_token"]
+print("header = \"Authorization: Bearer %s\"" % tok)
+' 2>/dev/null | curl -fsS -m 15 --retry 2 -K - \
+            "https://${PCLOUD_HOST}/userinfo" > "$USERINFO_FILE" 2>/dev/null
   then
-    python3 - "$NOW_MS" "$INSTANCE" "$USERINFO_FILE" <<'PYEOF' > "$PAYLOAD"
+    python3 - "$NOW_MS" "$INSTANCE" "$USERINFO_FILE" <<'PYEOF' > "$PAYLOAD" 2>/dev/null
 import json
 import sys
 
@@ -54,9 +65,8 @@ now_ms, instance, userinfo_file = sys.argv[1:4]
 with open(userinfo_file) as f:
     d = json.load(f)
 
-# pcloud sets "result" to 0 on success; anything else (bad login, TFA required)
-# means the quota fields are absent or stale -- skip quietly, same as a failed
-# `rclone about` did.
+# pcloud sets "result" to 0 on success; anything else (e.g. a revoked token)
+# means the quota fields are absent -- skip quietly.
 if not d.get("result", 0):
     for field, metric in (("usedquota", "pcloud_account_used_bytes"), ("quota", "pcloud_account_total_bytes")):
         val = d.get(field)
@@ -67,7 +77,7 @@ if not d.get("result", 0):
             )
 PYEOF
   fi
-  [ -s "$PAYLOAD" ] && curl -fsS -m 15 --retry 3 -X POST -H "Content-Type: application/json" --data-binary @"$PAYLOAD" "$VM_URL" > /dev/null
+  [ -s "$PAYLOAD" ] && metrics_curl -fsS -m 15 --retry 3 -X POST -H "Content-Type: application/json" --data-binary @"$PAYLOAD" "$VM_URL" > /dev/null
   exit 0
 fi
 
@@ -236,4 +246,4 @@ if snap_id and snap_id != last_id:
 PYEOF
 fi
 
-curl -fsS -m 15 --retry 3 -X POST -H "Content-Type: application/json" --data-binary @"$PAYLOAD" "$VM_URL" > /dev/null
+metrics_curl -fsS -m 15 --retry 3 -X POST -H "Content-Type: application/json" --data-binary @"$PAYLOAD" "$VM_URL" > /dev/null

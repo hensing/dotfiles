@@ -87,8 +87,9 @@ fi
 
 # --- pre-flight: is the metrics host reachable? ---
 # backup_photos pushes run status to VictoriaMetrics (restic-metrics-push). If
-# it's unreachable -- not on the VPN / netbird mesh -- the backup still runs but
-# Grafana won't see this run (the staleness alert will fire). Warn; interactively,
+# it's unreachable -- offline, or the gate rejects `keyring_helper vicmetrics`
+# -- the backup still runs but Grafana won't see this run (the staleness alert
+# will fire). Warn; interactively,
 # ask first (declining this top-level check just aborts -- unlike
 # restic-verify-data's own preflight, there's no caller here that needs to
 # distinguish "skipped" from "failed"). Cron (no TTY) warns and proceeds.
@@ -248,7 +249,7 @@ if [ -d "$HOME/Pictures/Lightroom" ]; then
         "$(dirname "$0")/restic-verify-data" catalog "$REPO_CAT"
         CAT_SUBSET_RC=$?
         # exit 3 = metrics preflight declined, not a verification failure --
-        # note it but don't block forget over an unrelated VPN hiccup. Any
+        # note it but don't block forget over an unrelated metrics outage. Any
         # other non-zero (1 = ran and failed/damaged; 2 = bad usage, shouldn't
         # happen here) is a real problem.
         if [ "$CAT_SUBSET_RC" -eq 3 ]; then
